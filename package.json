@@ -1,0 +1,16 @@
+{
+  "name": "habitad-wms",
+  "version": "1.0.0",
+  "description": "Sistema local WMS para Habitad en SQLite y Node.js",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "wms",
+    "sqlite",
+    "local-app"
+  ],
+  "author": "",
+  "license": "ISC"
+}
