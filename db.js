@@ -1,113 +1,231 @@
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
 
-const dbPath = path.join(__dirname, 'db.sqlite');
-const db = new DatabaseSync(dbPath);
+const isPostgres = !!(process.env.DATABASE_URL && 
+    (process.env.DATABASE_URL.startsWith('postgres://') || process.env.DATABASE_URL.startsWith('postgresql://')));
 
-// Inicializar tablas
-db.exec(`
-    CREATE TABLE IF NOT EXISTS clientes (
-        nit TEXT PRIMARY KEY,
-        nombre TEXT NOT NULL,
-        telefono TEXT,
-        direccion TEXT,
-        correo TEXT
-    );
+let pgPool = null;
+let sqliteDb = null;
 
-    CREATE TABLE IF NOT EXISTS proveedores (
-        nit TEXT PRIMARY KEY,
-        nombre TEXT NOT NULL,
-        telefono TEXT,
-        direccion TEXT,
-        correo TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS productos (
-        codigo TEXT PRIMARY KEY,
-        descripcion TEXT NOT NULL,
-        peso REAL,
-        valor_venta REAL,
-        marca TEXT,
-        alto REAL,
-        largo REAL,
-        ancho REAL,
-        unidad_compra TEXT DEFAULT 'Und',
-        unidad_consumo TEXT DEFAULT 'Und'
-    );
-
-    CREATE TABLE IF NOT EXISTS ordenes_compra (
-        consecutivo TEXT PRIMARY KEY,
-        fecha TEXT NOT NULL,
-        proveedor_nit TEXT,
-        observaciones TEXT,
-        descuento REAL DEFAULT 0,
-        iva REAL DEFAULT 0,
-        retencion REAL DEFAULT 0,
-        condiciones_envio TEXT,
-        forma_pago TEXT,
-        fecha_envio TEXT,
-        items TEXT NOT NULL,
-        FOREIGN KEY(proveedor_nit) REFERENCES proveedores(nit)
-    );
-
-    CREATE TABLE IF NOT EXISTS ordenes_servicio (
-        consecutivo TEXT PRIMARY KEY,
-        fecha TEXT NOT NULL,
-        proveedor_nit TEXT,
-        observaciones TEXT,
-        descuento REAL DEFAULT 0,
-        iva REAL DEFAULT 0,
-        retencion REAL DEFAULT 0,
-        condiciones_envio TEXT,
-        forma_pago TEXT,
-        fecha_envio TEXT,
-        items TEXT NOT NULL,
-        FOREIGN KEY(proveedor_nit) REFERENCES proveedores(nit)
-    );
-
-    CREATE TABLE IF NOT EXISTS ventas (
-        remision TEXT PRIMARY KEY,
-        fecha TEXT NOT NULL,
-        cliente_nit TEXT,
-        observaciones TEXT,
-        iva REAL DEFAULT 0,
-        items TEXT NOT NULL,
-        estado TEXT DEFAULT 'Pendiente', -- 'Pendiente', 'Pre-alistado', 'Completado'
-        FOREIGN KEY(cliente_nit) REFERENCES clientes(nit)
-    );
-
-    CREATE TABLE IF NOT EXISTS inventario_movimientos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        codigo_producto TEXT NOT NULL,
-        tipo TEXT NOT NULL, -- 'IN' o 'OUT'
-        documento_referencia TEXT,
-        fecha TEXT NOT NULL,
-        cantidad REAL NOT NULL,
-        ubicacion TEXT NOT NULL,
-        FOREIGN KEY(codigo_producto) REFERENCES productos(codigo)
-    );
-`);
-
-try {
-    db.exec(`ALTER TABLE ventas ADD COLUMN auxiliar TEXT;`);
-} catch (e) {
-    // La columna ya existe
+if (isPostgres) {
+    const { Pool } = require('pg');
+    const isLocalPostgres = process.env.DATABASE_URL.includes('localhost') || process.env.DATABASE_URL.includes('127.0.0.1');
+    const poolConfig = {
+        connectionString: process.env.DATABASE_URL,
+        max: 5, // Optimización de recursos en tiers gratuitos/económicos
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+    };
+    if (!isLocalPostgres) {
+        poolConfig.ssl = { rejectUnauthorized: false }; // Requerido para Render/Railway
+    }
+    pgPool = new Pool(poolConfig);
+    console.log("HABITAD WMS: Conectado a PostgreSQL (Modo Producción/Cloud)");
+} else {
+    const dbPath = path.join(__dirname, 'db.sqlite');
+    sqliteDb = new DatabaseSync(dbPath);
+    console.log("HABITAD WMS: Conectado a SQLite local (Modo Desarrollo/Cero-Configuración)");
 }
 
-try {
-    db.exec(`ALTER TABLE productos ADD COLUMN unidad_compra TEXT DEFAULT 'Und';`);
-} catch (e) {
-    // La columna ya existe
+// Helper genérico para consultas asíncronas con conversión de placeholders para Postgres (? -> $1, $2...)
+async function executeQuery(sql, params = []) {
+    if (isPostgres) {
+        let index = 1;
+        const pgSql = sql.replace(/\?/g, () => `$${index++}`);
+        const res = await pgPool.query(pgSql, params);
+        return res.rows;
+    } else {
+        const stmt = sqliteDb.prepare(sql);
+        const trimmedSql = sql.trim().toUpperCase();
+        if (trimmedSql.startsWith('SELECT')) {
+            return stmt.all(...params);
+        } else {
+            const res = stmt.run(...params);
+            return { success: true, changes: res.changes, lastInsertRowid: res.lastInsertRowid };
+        }
+    }
 }
 
-try {
-    db.exec(`ALTER TABLE productos ADD COLUMN unidad_consumo TEXT DEFAULT 'Und';`);
-} catch (e) {
-    // La columna ya existe
+// Inicialización de Tablas de forma segura según el motor detectado
+async function initTables() {
+    if (isPostgres) {
+        await executeQuery(`
+            CREATE TABLE IF NOT EXISTS clientes (
+                nit TEXT PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                telefono TEXT,
+                direccion TEXT,
+                correo TEXT
+            );
+        `);
+        await executeQuery(`
+            CREATE TABLE IF NOT EXISTS proveedores (
+                nit TEXT PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                telefono TEXT,
+                direccion TEXT,
+                correo TEXT
+            );
+        `);
+        await executeQuery(`
+            CREATE TABLE IF NOT EXISTS productos (
+                codigo TEXT PRIMARY KEY,
+                descripcion TEXT NOT NULL,
+                peso REAL,
+                valor_venta REAL,
+                marca TEXT,
+                alto REAL,
+                largo REAL,
+                ancho REAL,
+                unidad_compra TEXT DEFAULT 'Und',
+                unidad_consumo TEXT DEFAULT 'Und'
+            );
+        `);
+        await executeQuery(`
+            CREATE TABLE IF NOT EXISTS ordenes_compra (
+                consecutivo TEXT PRIMARY KEY,
+                fecha TEXT NOT NULL,
+                proveedor_nit TEXT,
+                observaciones TEXT,
+                descuento REAL DEFAULT 0,
+                iva REAL DEFAULT 0,
+                retencion REAL DEFAULT 0,
+                condiciones_envio TEXT,
+                forma_pago TEXT,
+                fecha_envio TEXT,
+                items TEXT NOT NULL,
+                FOREIGN KEY(proveedor_nit) REFERENCES proveedores(nit)
+            );
+        `);
+        await executeQuery(`
+            CREATE TABLE IF NOT EXISTS ventas (
+                remision TEXT PRIMARY KEY,
+                fecha TEXT NOT NULL,
+                cliente_nit TEXT,
+                observaciones TEXT,
+                iva REAL DEFAULT 0,
+                items TEXT NOT NULL,
+                estado TEXT DEFAULT 'Pendiente',
+                auxiliar TEXT,
+                FOREIGN KEY(cliente_nit) REFERENCES clientes(nit)
+            );
+        `);
+        await executeQuery(`
+            CREATE TABLE IF NOT EXISTS inventario_movimientos (
+                id SERIAL PRIMARY KEY,
+                codigo_producto TEXT NOT NULL,
+                tipo TEXT NOT NULL,
+                documento_referencia TEXT,
+                fecha TEXT NOT NULL,
+                cantidad REAL NOT NULL,
+                ubicacion TEXT NOT NULL,
+                FOREIGN KEY(codigo_producto) REFERENCES productos(codigo)
+            );
+        `);
+        try {
+            await executeQuery(`CREATE INDEX IF NOT EXISTS idx_movimientos_producto ON inventario_movimientos(codigo_producto);`);
+            await executeQuery(`CREATE INDEX IF NOT EXISTS idx_movimientos_ubicacion ON inventario_movimientos(ubicacion);`);
+            await executeQuery(`CREATE INDEX IF NOT EXISTS idx_movimientos_referencia ON inventario_movimientos(documento_referencia);`);
+        } catch (e) {
+            // Ignorar si los índices ya existen
+        }
+    } else {
+        sqliteDb.exec(`
+            CREATE TABLE IF NOT EXISTS clientes (
+                nit TEXT PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                telefono TEXT,
+                direccion TEXT,
+                correo TEXT
+            );
+            CREATE TABLE IF NOT EXISTS proveedores (
+                nit TEXT PRIMARY KEY,
+                nombre TEXT NOT NULL,
+                telefono TEXT,
+                direccion TEXT,
+                correo TEXT
+            );
+            CREATE TABLE IF NOT EXISTS productos (
+                codigo TEXT PRIMARY KEY,
+                descripcion TEXT NOT NULL,
+                peso REAL,
+                valor_venta REAL,
+                marca TEXT,
+                alto REAL,
+                largo REAL,
+                ancho REAL,
+                unidad_compra TEXT DEFAULT 'Und',
+                unidad_consumo TEXT DEFAULT 'Und'
+            );
+            CREATE TABLE IF NOT EXISTS ordenes_compra (
+                consecutivo TEXT PRIMARY KEY,
+                fecha TEXT NOT NULL,
+                proveedor_nit TEXT,
+                observaciones TEXT,
+                descuento REAL DEFAULT 0,
+                iva REAL DEFAULT 0,
+                retencion REAL DEFAULT 0,
+                condiciones_envio TEXT,
+                forma_pago TEXT,
+                fecha_envio TEXT,
+                items TEXT NOT NULL,
+                FOREIGN KEY(proveedor_nit) REFERENCES proveedores(nit)
+            );
+            CREATE TABLE IF NOT EXISTS ventas (
+                remision TEXT PRIMARY KEY,
+                fecha TEXT NOT NULL,
+                cliente_nit TEXT,
+                observaciones TEXT,
+                iva REAL DEFAULT 0,
+                items TEXT NOT NULL,
+                estado TEXT DEFAULT 'Pendiente',
+                auxiliar TEXT,
+                FOREIGN KEY(cliente_nit) REFERENCES clientes(nit)
+            );
+            CREATE TABLE IF NOT EXISTS inventario_movimientos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                codigo_producto TEXT NOT NULL,
+                tipo TEXT NOT NULL,
+                documento_referencia TEXT,
+                fecha TEXT NOT NULL,
+                cantidad REAL NOT NULL,
+                ubicacion TEXT NOT NULL,
+                FOREIGN KEY(codigo_producto) REFERENCES productos(codigo)
+            );
+            CREATE INDEX IF NOT EXISTS idx_movimientos_producto ON inventario_movimientos(codigo_producto);
+            CREATE INDEX IF NOT EXISTS idx_movimientos_ubicacion ON inventario_movimientos(ubicacion);
+            CREATE INDEX IF NOT EXISTS idx_movimientos_referencia ON inventario_movimientos(documento_referencia);
+        `);
+    }
+
+    // Asegurar migración de columnas adicionales en bases de datos existentes
+    try {
+        if (isPostgres) {
+            await executeQuery(`ALTER TABLE ventas ADD COLUMN IF NOT EXISTS auxiliar TEXT;`);
+        } else {
+            sqliteDb.exec(`ALTER TABLE ventas ADD COLUMN auxiliar TEXT;`);
+        }
+    } catch (e) {}
+
+    try {
+        if (isPostgres) {
+            await executeQuery(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_compra TEXT DEFAULT 'Und';`);
+        } else {
+            sqliteDb.exec(`ALTER TABLE productos ADD COLUMN unidad_compra TEXT DEFAULT 'Und';`);
+        }
+    } catch (e) {}
+
+    try {
+        if (isPostgres) {
+            await executeQuery(`ALTER TABLE productos ADD COLUMN IF NOT EXISTS unidad_consumo TEXT DEFAULT 'Und';`);
+        } else {
+            sqliteDb.exec(`ALTER TABLE productos ADD COLUMN unidad_consumo TEXT DEFAULT 'Und';`);
+        }
+    } catch (e) {}
 }
 
 // Semilla de base de datos
-function seedDatabase() {
+async function seedDatabase() {
     console.log("Sembrando datos de ejemplo real...");
     
     const proveedores = [
@@ -120,9 +238,13 @@ function seedDatabase() {
         { nit: '900444555', nombre: 'Asequin', telefono: '3124445566', direccion: 'Calle 80 # 24-50', correo: 'contacto@asequin.co' }
     ];
 
-    const stmtProv = db.prepare('INSERT OR IGNORE INTO proveedores (nit, nombre, telefono, direccion, correo) VALUES (?, ?, ?, ?, ?)');
     for (const p of proveedores) {
-        stmtProv.run(p.nit, p.nombre, p.telefono, p.direccion, p.correo);
+        await executeQuery(
+            `INSERT INTO proveedores (nit, nombre, telefono, direccion, correo) 
+             VALUES (?, ?, ?, ?, ?) 
+             ON CONFLICT (nit) DO NOTHING`,
+            [p.nit, p.nombre, p.telefono, p.direccion, p.correo]
+        );
     }
 
     const productos = [
@@ -144,61 +266,71 @@ function seedDatabase() {
         { codigo: '10294', descripcion: 'GUANTE AMARILLO (9-9 1/2) - Guante Amarillo Corrugado T.9', peso: 0.13, valor_venta: 5000, marca: 'Asequin', alto: 2, largo: 29, ancho: 13, unidad_compra: 'Par', unidad_consumo: 'Par' }
     ];
 
-    const stmtProd = db.prepare('INSERT OR IGNORE INTO productos (codigo, descripcion, peso, valor_venta, marca, alto, largo, ancho, unidad_compra, unidad_consumo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     for (const p of productos) {
-        stmtProd.run(p.codigo, p.descripcion, p.peso, p.valor_venta, p.marca, p.alto, p.largo, p.ancho, p.unidad_compra, p.unidad_consumo);
+        await executeQuery(
+            `INSERT INTO productos (codigo, descripcion, peso, valor_venta, marca, alto, largo, ancho, unidad_compra, unidad_consumo) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+             ON CONFLICT (codigo) DO NOTHING`,
+            [p.codigo, p.descripcion, p.peso, p.valor_venta, p.marca, p.alto, p.largo, p.ancho, p.unidad_compra, p.unidad_consumo]
+        );
     }
 }
 
-try {
-    seedDatabase();
-} catch (err) {
-    console.error("Error sembrando base de datos:", err);
+// Inicialización asíncrona principal expuesta al servidor
+async function initDB() {
+    await initTables();
+    try {
+        const prods = await executeQuery('SELECT codigo FROM productos LIMIT 1');
+        if (prods.length === 0) {
+            await seedDatabase();
+        }
+    } catch (err) {
+        console.error("Error sembrando base de datos:", err);
+    }
 }
 
 // --- LOGICA DE VOLUMETRÍA ---
 
-function getVolumeOcupado(ubicacion) {
-    const stmt = db.prepare(`
+async function getVolumeOcupado(ubicacion) {
+    const rows = await executeQuery(`
         SELECT m.codigo_producto, p.alto, p.largo, p.ancho,
                SUM(CASE WHEN m.tipo = 'IN' THEN m.cantidad ELSE -m.cantidad END) as stock
         FROM inventario_movimientos m
         JOIN productos p ON m.codigo_producto = p.codigo
         WHERE m.ubicacion = ?
-        GROUP BY m.codigo_producto
-    `);
-    const rows = stmt.all(ubicacion);
+        GROUP BY m.codigo_producto, p.alto, p.largo, p.ancho
+    `, [ubicacion]);
+    
     let totalVol = 0;
     for (const r of rows) {
-        const stock = r.stock || 0;
+        const stock = Number(r.stock || 0);
         if (stock > 0) {
-            const alto = r.alto || 0;
-            const largo = r.largo || 0;
-            const ancho = r.ancho || 0;
+            const alto = Number(r.alto || 0);
+            const largo = Number(r.largo || 0);
+            const ancho = Number(r.ancho || 0);
             totalVol += stock * alto * largo * ancho;
         }
     }
     return totalVol;
 }
 
-function validarDimensionesYVolumen(codigo_producto, cantidad, ubicacion) {
-    const stmtProd = db.prepare(`SELECT * FROM productos WHERE codigo = ?`);
-    const prod = stmtProd.all(codigo_producto)[0];
+async function validarDimensionesYVolumen(codigo_producto, cantidad, ubicacion) {
+    const prods = await executeQuery(`SELECT * FROM productos WHERE codigo = ?`, [codigo_producto]);
+    const prod = prods[0];
     if (!prod) {
         throw new Error(`El producto con código "${codigo_producto}" no existe en el catálogo.`);
     }
 
-    // Dimensiones máximas permitidas: alto: 200cm (2.0m), largo: 240cm (2.4m), ancho: 120cm (1.2m)
-    const pAlto = prod.alto || 0;
-    const pLargo = prod.largo || 0;
-    const pAncho = prod.ancho || 0;
+    const pAlto = Number(prod.alto || 0);
+    const pLargo = Number(prod.largo || 0);
+    const pAncho = Number(prod.ancho || 0);
 
     if (pAlto > 200 || pLargo > 240 || pAncho > 120) {
         throw new Error(`El producto "${codigo_producto}" excede las dimensiones máximas permitidas de la estantería (alto: 2.0m, largo: 2.4m, ancho: 1.2m). Dimensiones del producto: alto ${pAlto/100}m, largo ${pLargo/100}m, ancho ${pAncho/100}m.`);
     }
 
     const newVolume = cantidad * pAlto * pLargo * pAncho;
-    const currentOccupied = getVolumeOcupado(ubicacion);
+    const currentOccupied = await getVolumeOcupado(ubicacion);
     const maxVolume = 5760000; // 5.76 m³ en cm³
 
     if (currentOccupied + newVolume > maxVolume) {
@@ -212,53 +344,99 @@ function validarDimensionesYVolumen(codigo_producto, cantidad, ubicacion) {
 // --- MÉTODOS DEL MÓDULO DB ---
 
 module.exports = {
+    initDB,
+
     // Clientes
-    getClientes() {
-        return db.prepare('SELECT * FROM clientes ORDER BY nombre').all();
+    async getClientes() {
+        return executeQuery('SELECT * FROM clientes ORDER BY nombre');
     },
-    createCliente(nit, nombre, telefono, direccion, correo) {
-        db.prepare('INSERT OR REPLACE INTO clientes (nit, nombre, telefono, direccion, correo) VALUES (?, ?, ?, ?, ?)')
-          .run(nit, nombre, telefono, direccion, correo);
+    async createCliente(nit, nombre, telefono, direccion, correo) {
+        await executeQuery(
+            `INSERT INTO clientes (nit, nombre, telefono, direccion, correo) 
+             VALUES (?, ?, ?, ?, ?) 
+             ON CONFLICT (nit) DO UPDATE SET 
+                nombre = excluded.nombre, 
+                telefono = excluded.telefono, 
+                direccion = excluded.direccion, 
+                correo = excluded.correo`,
+            [nit, nombre, telefono, direccion, correo]
+        );
         return { success: true };
     },
 
     // Proveedores
-    getProveedores() {
-        return db.prepare('SELECT * FROM proveedores ORDER BY nombre').all();
+    async getProveedores() {
+        return executeQuery('SELECT * FROM proveedores ORDER BY nombre');
     },
-    createProveedor(nit, nombre, telefono, direccion, correo) {
-        db.prepare('INSERT OR REPLACE INTO proveedores (nit, nombre, telefono, direccion, correo) VALUES (?, ?, ?, ?, ?)')
-          .run(nit, nombre, telefono, direccion, correo);
+    async createProveedor(nit, nombre, telefono, direccion, correo) {
+        await executeQuery(
+            `INSERT INTO proveedores (nit, nombre, telefono, direccion, correo) 
+             VALUES (?, ?, ?, ?, ?) 
+             ON CONFLICT (nit) DO UPDATE SET 
+                nombre = excluded.nombre, 
+                telefono = excluded.telefono, 
+                direccion = excluded.direccion, 
+                correo = excluded.correo`,
+            [nit, nombre, telefono, direccion, correo]
+        );
         return { success: true };
     },
 
     // Productos
-    getProductos() {
-        return db.prepare('SELECT * FROM productos ORDER BY codigo').all();
+    async getProductos() {
+        return executeQuery('SELECT * FROM productos ORDER BY codigo');
     },
-    createProducto(codigo, descripcion, peso, valor_venta, marca, alto, largo, ancho, unidad_compra, unidad_consumo) {
-        db.prepare('INSERT OR REPLACE INTO productos (codigo, descripcion, peso, valor_venta, marca, alto, largo, ancho, unidad_compra, unidad_consumo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(codigo, descripcion, peso, valor_venta, marca, alto, largo, ancho, unidad_compra || 'Und', unidad_consumo || 'Und');
+    async createProducto(codigo, descripcion, peso, valor_venta, marca, alto, largo, ancho, unidad_compra, unidad_consumo) {
+        await executeQuery(
+            `INSERT INTO productos (codigo, descripcion, peso, valor_venta, marca, alto, largo, ancho, unidad_compra, unidad_consumo) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+             ON CONFLICT (codigo) DO UPDATE SET 
+                descripcion = excluded.descripcion, 
+                peso = excluded.peso, 
+                valor_venta = excluded.valor_venta, 
+                marca = excluded.marca, 
+                alto = excluded.alto, 
+                largo = excluded.largo, 
+                ancho = excluded.ancho, 
+                unidad_compra = excluded.unidad_compra, 
+                unidad_consumo = excluded.unidad_consumo`,
+            [codigo, descripcion, peso, valor_venta, marca, alto, largo, ancho, unidad_compra || 'Und', unidad_consumo || 'Und']
+        );
         return { success: true };
     },
 
     // Órdenes de Compra
-    getCompras() {
-        const rows = db.prepare(`
+    async getCompras() {
+        const rows = await executeQuery(`
             SELECT oc.*, p.nombre as proveedor_nombre 
             FROM ordenes_compra oc
             LEFT JOIN proveedores p ON oc.proveedor_nit = p.nit
             ORDER BY oc.fecha DESC
-        `).all();
-        rows.forEach(r => { r.items = JSON.parse(r.items); });
+        `);
+        rows.forEach(r => {
+            if (typeof r.items === 'string') {
+                r.items = JSON.parse(r.items);
+            }
+        });
         return rows;
     },
-    createCompra(body) {
-        db.prepare(`
-            INSERT OR REPLACE INTO ordenes_compra 
+    async createCompra(body) {
+        await executeQuery(`
+            INSERT INTO ordenes_compra 
             (consecutivo, fecha, proveedor_nit, observaciones, descuento, iva, retencion, condiciones_envio, forma_pago, fecha_envio, items) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
+            ON CONFLICT (consecutivo) DO UPDATE SET 
+                fecha = excluded.fecha,
+                proveedor_nit = excluded.proveedor_nit,
+                observaciones = excluded.observaciones,
+                descuento = excluded.descuento,
+                iva = excluded.iva,
+                retencion = excluded.retencion,
+                condiciones_envio = excluded.condiciones_envio,
+                forma_pago = excluded.forma_pago,
+                fecha_envio = excluded.fecha_envio,
+                items = excluded.items
+        `, [
             body.consecutivo,
             body.fecha,
             body.proveedor_nit,
@@ -270,59 +448,38 @@ module.exports = {
             body.forma_pago,
             body.fecha_envio,
             JSON.stringify(body.items)
-        );
-        return { success: true };
-    },
-
-    // Órdenes de Servicio
-    getServicios() {
-        const rows = db.prepare(`
-            SELECT os.*, p.nombre as proveedor_nombre 
-            FROM ordenes_servicio os
-            LEFT JOIN proveedores p ON os.proveedor_nit = p.nit
-            ORDER BY os.fecha DESC
-        `).all();
-        rows.forEach(r => { r.items = JSON.parse(r.items); });
-        return rows;
-    },
-    createServicio(body) {
-        db.prepare(`
-            INSERT OR REPLACE INTO ordenes_servicio 
-            (consecutivo, fecha, proveedor_nit, observaciones, descuento, iva, retencion, condiciones_envio, forma_pago, fecha_envio, items) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(
-            body.consecutivo,
-            body.fecha,
-            body.proveedor_nit,
-            body.observaciones,
-            body.descuento || 0,
-            body.iva || 0,
-            body.retencion || 0,
-            body.condiciones_envio,
-            body.forma_pago,
-            body.fecha_envio,
-            JSON.stringify(body.items)
-        );
+        ]);
         return { success: true };
     },
 
     // Ventas / Remisiones
-    getVentas() {
-        const rows = db.prepare(`
+    async getVentas() {
+        const rows = await executeQuery(`
             SELECT v.*, c.nombre as cliente_nombre 
             FROM ventas v
             LEFT JOIN clientes c ON v.cliente_nit = c.nit
             ORDER BY v.fecha DESC
-        `).all();
-        rows.forEach(r => { r.items = JSON.parse(r.items); });
+        `);
+        rows.forEach(r => {
+            if (typeof r.items === 'string') {
+                r.items = JSON.parse(r.items);
+            }
+        });
         return rows;
     },
-    createVenta(body) {
-        db.prepare(`
-            INSERT OR REPLACE INTO ventas 
+    async createVenta(body) {
+        await executeQuery(`
+            INSERT INTO ventas 
             (remision, fecha, cliente_nit, observaciones, iva, items, estado) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(
+            ON CONFLICT (remision) DO UPDATE SET 
+                fecha = excluded.fecha,
+                cliente_nit = excluded.cliente_nit,
+                observaciones = excluded.observaciones,
+                iva = excluded.iva,
+                items = excluded.items,
+                estado = excluded.estado
+        `, [
             body.remision,
             body.fecha,
             body.cliente_nit,
@@ -330,22 +487,22 @@ module.exports = {
             body.iva || 0,
             JSON.stringify(body.items),
             body.estado || 'Pendiente'
-        );
+        ]);
         return { success: true };
     },
 
     // Consolidado Diario
-    getConsolidado(fecha) {
-        const rows = db.prepare(`
+    async getConsolidado(fecha) {
+        const rows = await executeQuery(`
             SELECT v.remision, v.fecha, v.estado, c.nombre as cliente_nombre, v.items
             FROM ventas v
             LEFT JOIN clientes c ON v.cliente_nit = c.nit
             WHERE v.fecha = ?
             ORDER BY v.remision ASC
-        `).all(fecha);
+        `, [fecha]);
 
         return rows.map(row => {
-            const items = JSON.parse(row.items);
+            const items = typeof row.items === 'string' ? JSON.parse(row.items) : row.items;
             const totalUnidades = items.reduce((sum, item) => sum + Number(item.cantidad), 0);
             return {
                 remision: row.remision,
@@ -359,30 +516,31 @@ module.exports = {
     },
 
     // Picking / Alistamiento Detalle
-    getPicking(remision) {
-        const venta = db.prepare(`
+    async getPicking(remision) {
+        const ventas = await executeQuery(`
             SELECT v.*, c.nombre as cliente_nombre 
             FROM ventas v 
             LEFT JOIN clientes c ON v.cliente_nit = c.nit
             WHERE v.remision = ?
-        `).all(remision)[0];
+        `, [remision]);
         
+        const venta = ventas[0];
         if (!venta) {
             throw new Error('No se encontró la factura/remisión especificada.');
         }
 
-        const items = JSON.parse(venta.items);
+        const items = typeof venta.items === 'string' ? JSON.parse(venta.items) : venta.items;
         const pickingDetails = [];
 
         for (const item of items) {
             // Obtener stock actual detallado por ubicación
-            const stockUbicaciones = db.prepare(`
+            const stockUbicaciones = await executeQuery(`
                 SELECT ubicacion, SUM(CASE WHEN tipo = 'IN' THEN cantidad ELSE -cantidad END) as stock
                 FROM inventario_movimientos
                 WHERE codigo_producto = ?
                 GROUP BY ubicacion
-                HAVING stock > 0
-            `).all(item.codigo);
+                HAVING SUM(CASE WHEN tipo = 'IN' THEN cantidad ELSE -cantidad END) > 0
+            `, [item.codigo]);
 
             // Filtrar stock en zonas auxiliares (posición termina en 10 o 14)
             const stockAux = stockUbicaciones
@@ -390,7 +548,7 @@ module.exports = {
                     const pos = u.ubicacion.substring(5, 7);
                     return pos === '10' || pos === '14';
                 })
-                .reduce((sum, u) => sum + u.stock, 0);
+                .reduce((sum, u) => sum + Number(u.stock), 0);
 
             // Filtrar stock en zona alta (posiciones >= 20)
             const stockAlta = stockUbicaciones
@@ -398,9 +556,9 @@ module.exports = {
                     const pos = parseInt(u.ubicacion.substring(5, 7), 10);
                     return pos >= 20;
                 })
-                .reduce((sum, u) => sum + u.stock, 0);
+                .reduce((sum, u) => sum + Number(u.stock), 0);
 
-            const totalDisponible = stockUbicaciones.reduce((sum, u) => sum + u.stock, 0);
+            const totalDisponible = stockUbicaciones.reduce((sum, u) => sum + Number(u.stock), 0);
 
             pickingDetails.push({
                 codigo: item.codigo,
@@ -411,7 +569,7 @@ module.exports = {
                 stock_alta: stockAlta,
                 ubicaciones: stockUbicaciones.map(u => ({
                     ubicacion: u.ubicacion,
-                    stock: u.stock
+                    stock: Number(u.stock)
                 }))
             });
         }
@@ -427,130 +585,112 @@ module.exports = {
     },
 
     // Confirmar picking
-    confirmarPicking(remision, itemsDespachados, auxiliar) {
-        const stmtInsertMov = db.prepare(`
-            INSERT INTO inventario_movimientos (codigo_producto, tipo, documento_referencia, fecha, cantidad, ubicacion)
-            VALUES (?, 'OUT', ?, ?, ?, ?)
-        `);
-
+    async confirmarPicking(remision, itemsDespachados, auxiliar) {
         const fechaActual = new Date().toISOString().split('T')[0];
 
-        // Validar primero volumetría y disponibilidad (sólo por seguridad en el backend)
         for (const item of itemsDespachados) {
             if (item.cantidad > 0) {
                 // Registrar movimiento OUT
-                stmtInsertMov.run(
+                await executeQuery(`
+                    INSERT INTO inventario_movimientos (codigo_producto, tipo, documento_referencia, fecha, cantidad, ubicacion)
+                    VALUES (?, 'OUT', ?, ?, ?, ?)
+                `, [
                     item.codigo,
                     remision,
                     fechaActual,
                     item.cantidad,
                     item.ubicacion
-                );
+                ]);
             }
         }
 
-        db.prepare(`UPDATE ventas SET estado = 'Completado', auxiliar = ? WHERE remision = ?`)
-          .run(auxiliar || '', remision);
+        await executeQuery(`UPDATE ventas SET estado = 'Completado', auxiliar = ? WHERE remision = ?`, [auxiliar || '', remision]);
 
         return { success: true };
     },
 
     // Historial Movimientos Referencia
-    getMovimientosReferencia(referencia) {
-        return db.prepare("SELECT * FROM inventario_movimientos WHERE documento_referencia LIKE ?")
-                 .all(referencia + '%');
+    async getMovimientosReferencia(referencia) {
+        return executeQuery("SELECT * FROM inventario_movimientos WHERE documento_referencia LIKE ?", [referencia + '%']);
     },
 
     // Movimientos de inventario generales
-    getMovimientos() {
-        return db.prepare('SELECT * FROM inventario_movimientos ORDER BY id DESC LIMIT 500').all();
+    async getMovimientos() {
+        return executeQuery('SELECT * FROM inventario_movimientos ORDER BY id DESC LIMIT 500');
     },
-    createMovimiento(body) {
-        // Validar volumen si es un ingreso (IN)
+    async createMovimiento(body) {
         if (body.tipo === 'IN') {
-            validarDimensionesYVolumen(body.codigo_producto, body.cantidad, body.ubicacion);
+            await validarDimensionesYVolumen(body.codigo_producto, body.cantidad, body.ubicacion);
         }
 
-        db.prepare(`
+        await executeQuery(`
             INSERT INTO inventario_movimientos 
             (codigo_producto, tipo, documento_referencia, fecha, cantidad, ubicacion) 
             VALUES (?, ?, ?, ?, ?, ?)
-        `).run(
+        `, [
             body.codigo_producto,
             body.tipo,
             body.documento_referencia,
             body.fecha,
             body.cantidad,
             body.ubicacion
-        );
+        ]);
         return { success: true };
     },
 
     // Stock consolidado
-    getStockGlobal() {
-        const rows = db.prepare(`
+    async getStockGlobal() {
+        const rows = await executeQuery(`
             SELECT p.codigo, p.descripcion, p.marca, p.peso,
                    SUM(CASE WHEN m.tipo = 'IN' THEN m.cantidad ELSE -m.cantidad END) as stock_total
             FROM productos p
             LEFT JOIN inventario_movimientos m ON p.codigo = m.codigo_producto
-            GROUP BY p.codigo
-        `).all();
+            GROUP BY p.codigo, p.descripcion, p.marca, p.peso
+        `);
         rows.forEach(row => {
-            row.stock_total = row.stock_total || 0;
+            row.stock_total = Number(row.stock_total || 0);
         });
         return rows;
     },
 
-    getStockUbicaciones() {
-        return db.prepare(`
+    async getStockUbicaciones() {
+        return executeQuery(`
             SELECT codigo_producto, ubicacion, SUM(CASE WHEN tipo = 'IN' THEN cantidad ELSE -cantidad END) as stock
             FROM inventario_movimientos
             GROUP BY codigo_producto, ubicacion
-            HAVING stock > 0
-        `).all();
+            HAVING SUM(CASE WHEN tipo = 'IN' THEN cantidad ELSE -cantidad END) > 0
+        `);
     },
 
-    getStockDetalle(codigo) {
-        return db.prepare(`
+    async getStockDetalle(codigo) {
+        return executeQuery(`
             SELECT ubicacion, SUM(CASE WHEN tipo = 'IN' THEN cantidad ELSE -cantidad END) as stock
             FROM inventario_movimientos
             WHERE codigo_producto = ?
             GROUP BY ubicacion
-            HAVING stock > 0
+            HAVING SUM(CASE WHEN tipo = 'IN' THEN cantidad ELSE -cantidad END) > 0
             ORDER BY ubicacion ASC
-        `).all(codigo);
+        `, [codigo]);
     },
 
-    // --- MÉTODOS ADICIONALES PARA LAS NUEVAS REGLAS DE NEGOCIO ---
-
     // Obtener stock en auxiliar (10/14) de un producto
-    getStockAuxiliar(codigo) {
-        const rows = db.prepare(`
+    async getStockAuxiliar(codigo) {
+        const rows = await executeQuery(`
             SELECT SUM(CASE WHEN tipo = 'IN' THEN cantidad ELSE -cantidad END) as stock_auxiliar
             FROM inventario_movimientos
             WHERE codigo_producto = ? AND (ubicacion LIKE '%10' OR ubicacion LIKE '%14')
-        `).all(codigo);
-        return rows[0].stock_auxiliar || 0;
+        `, [codigo]);
+        return Number(rows[0]?.stock_auxiliar || 0);
     },
 
     // Carga Masiva Inventario General (Ciego)
-    saveInventarioGeneral(items) {
+    async saveInventarioGeneral(items) {
         const fechaActual = new Date().toISOString().split('T')[0];
 
         // 1. Limpiar todos los movimientos de inventario actuales
-        db.exec('DELETE FROM inventario_movimientos');
+        await executeQuery('DELETE FROM inventario_movimientos');
 
         // 2. Insertar cada item
-        const stmtProd = db.prepare('SELECT codigo FROM productos WHERE codigo = ?');
-        const stmtInsertProd = db.prepare(`
-            INSERT INTO productos (codigo, descripcion, peso, valor_venta, marca, alto, largo, ancho, unidad_compra, unidad_consumo) 
-            VALUES (?, 'PRODUCTO NUEVO (CARGA CIEGA)', 1.0, 100, 'GENERICA', 10.0, 10.0, 10.0, 'Und', 'Und')
-        `);
-        const stmtInsertMov = db.prepare(`
-            INSERT INTO inventario_movimientos (codigo_producto, tipo, documento_referencia, fecha, cantidad, ubicacion)
-            VALUES (?, 'IN', 'INVENTARIO GENERAL', ?, ?, ?)
-        `);
-
         for (const item of items) {
             const { codigo, ubicacion, cantidad } = item;
             if (!codigo || !ubicacion || isNaN(cantidad) || cantidad <= 0) {
@@ -558,33 +698,39 @@ module.exports = {
             }
 
             // Validar si el producto existe, sino crearlo (Carga Ciega)
-            const prodExists = stmtProd.all(codigo)[0];
-            if (!prodExists) {
-                stmtInsertProd.run(codigo);
+            const prodExists = await executeQuery('SELECT codigo FROM productos WHERE codigo = ?', [codigo]);
+            if (prodExists.length === 0) {
+                await executeQuery(`
+                    INSERT INTO productos (codigo, descripcion, peso, valor_venta, marca, alto, largo, ancho, unidad_compra, unidad_consumo) 
+                    VALUES (?, 'PRODUCTO NUEVO (CARGA CIEGA)', 1.0, 100, 'GENERICA', 10.0, 10.0, 10.0, 'Und', 'Und')
+                `, [codigo]);
             }
 
             // Validar volumen de la posición
-            validarDimensionesYVolumen(codigo, cantidad, ubicacion);
+            await validarDimensionesYVolumen(codigo, cantidad, ubicacion);
 
             // Registrar movimiento IN
-            stmtInsertMov.run(codigo, fechaActual, cantidad, ubicacion);
+            await executeQuery(`
+                INSERT INTO inventario_movimientos (codigo_producto, tipo, documento_referencia, fecha, cantidad, ubicacion)
+                VALUES (?, 'IN', 'INVENTARIO GENERAL', ?, ?, ?)
+            `, [codigo, fechaActual, cantidad, ubicacion]);
         }
 
         return { success: true };
     },
 
     // Descenso Montacargas (Priorizado por rack alto DESC y nivel DESC)
-    ejecutarDescenso(codigo, cantidad) {
+    async ejecutarDescenso(codigo, cantidad) {
         const fechaActual = new Date().toISOString().split('T')[0];
 
         // 1. Buscar todas las ubicaciones con stock de este producto
-        const stockUbicaciones = db.prepare(`
+        const stockUbicaciones = await executeQuery(`
             SELECT ubicacion, SUM(CASE WHEN tipo = 'IN' THEN cantidad ELSE -cantidad END) as stock
             FROM inventario_movimientos
             WHERE codigo_producto = ?
             GROUP BY ubicacion
-            HAVING stock > 0
-        `).all(codigo);
+            HAVING SUM(CASE WHEN tipo = 'IN' THEN cantidad ELSE -cantidad END) > 0
+        `, [codigo]);
 
         // 2. Filtrar rack alto (pos >= 20)
         const ubicacionesAltas = stockUbicaciones.filter(u => {
@@ -614,7 +760,7 @@ module.exports = {
         for (const u of ubicacionesAltas) {
             if (restante <= 0) break;
 
-            const disponible = u.stock;
+            const disponible = Number(u.stock);
             const aTomar = Math.min(restante, disponible);
 
             // Obtener el vano de origen
@@ -649,7 +795,6 @@ module.exports = {
         }
 
         // 5. Validar volumetría en el destino antes de guardar nada (transaccionalidad manual)
-        // Agrupamos por ubicación de destino para hacer un chequeo preciso de volumen
         const consolidadoDestino = {};
         for (const mov of movimientosARegistrar) {
             if (mov.tipo === 'IN') {
@@ -658,24 +803,22 @@ module.exports = {
         }
 
         for (const [ubicacion, qty] of Object.entries(consolidadoDestino)) {
-            validarDimensionesYVolumen(codigo, qty, ubicacion);
+            await validarDimensionesYVolumen(codigo, qty, ubicacion);
         }
 
         // 6. Insertar movimientos en la base de datos
-        const stmtInsertMov = db.prepare(`
-            INSERT INTO inventario_movimientos (codigo_producto, tipo, documento_referencia, fecha, cantidad, ubicacion)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `);
-
         for (const mov of movimientosARegistrar) {
-            stmtInsertMov.run(
+            await executeQuery(`
+                INSERT INTO inventario_movimientos (codigo_producto, tipo, documento_referencia, fecha, cantidad, ubicacion)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `, [
                 mov.codigo_producto,
                 mov.tipo,
                 mov.documento_referencia,
                 mov.fecha,
                 mov.cantidad,
                 mov.ubicacion
-            );
+            ]);
         }
 
         return { success: true, movimientos: movimientosARegistrar };

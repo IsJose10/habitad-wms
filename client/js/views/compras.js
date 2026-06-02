@@ -1,6 +1,15 @@
 import { state } from '../state.js';
 import { fetchAPI } from '../api.js';
-import { formatoMoneda, readExcelOrCSV, parseNumberString, formatExcelDate } from '../utils.js';
+import { 
+    formatoMoneda, 
+    readExcelOrCSV, 
+    parseNumberString, 
+    formatExcelDate,
+    calcularTotalLinea,
+    calcularIVA,
+    buscarProveedorNit,
+    buscarProductoPorCodigo
+} from '../utils.js';
 
 let ocItemCount = 0;
 let csvParsedOrders = [];
@@ -119,7 +128,7 @@ export function calcularTotalesOC() {
     rows.forEach(row => {
         const qty = Number(row.querySelector('.oc-item-qty').value) || 0;
         const unit = Number(row.querySelector('.oc-item-unit').value) || 0;
-        const total = qty * unit;
+        const total = calcularTotalLinea(qty, unit);
         subtotal += total;
 
         row.querySelector('.oc-item-total').textContent = formatoMoneda(total);
@@ -130,7 +139,7 @@ export function calcularTotalesOC() {
     const retPct = Number(document.getElementById('oc-retencion').value) || 0;
 
     const baseIVA = Math.max(0, subtotal - descuento);
-    const valorIVA = baseIVA * (ivaPct / 100);
+    const valorIVA = calcularIVA(baseIVA, ivaPct);
     const valorRet = baseIVA * (retPct / 100);
     const totalGeneral = baseIVA + valorIVA - valorRet;
 
@@ -365,38 +374,6 @@ export function recibirOCDesdeHistorial(consecutivo) {
 
 // --- CSV IMPORT HELPERS ---
 
-function findProveedorNit(terceroText) {
-    if (!terceroText) return '';
-    const norm = terceroText.trim().toLowerCase();
-
-    let match = state.proveedores.find(p => p.nombre.trim().toLowerCase() === norm);
-    if (match) return match.nit;
-
-    match = state.proveedores.find(p => p.nit === terceroText.trim());
-    if (match) return match.nit;
-
-    match = state.proveedores.find(p => p.nombre.toLowerCase().includes(norm) || norm.includes(p.nombre.toLowerCase()));
-    if (match) return match.nit;
-
-    return terceroText.trim();
-}
-
-function findProductByCode(codeText) {
-    if (!codeText) return null;
-    const cleanCode = String(codeText).trim();
-
-    let prod = state.productos.find(p => p.codigo === cleanCode);
-    if (prod) return prod;
-
-    if (/^\d+$/.test(cleanCode)) {
-        const padded5 = cleanCode.padStart(5, '0');
-        prod = state.productos.find(p => p.codigo === padded5);
-        if (prod) return prod;
-    }
-
-    return null;
-}
-
 export function descargarPlantillaCSV() {
     if (window.XLSX) {
         const data = [
@@ -482,7 +459,7 @@ function parseExcelOrCSVToOrders(rows, colMapping) {
         if (!consecutivoRaw) continue;
         if (!codigoRaw) continue;
 
-        const resolvedNit = findProveedorNit(proveedorRaw);
+        const resolvedNit = buscarProveedorNit(proveedorRaw);
         let parsedFecha = formatExcelDate(fechaRaw);
         if (!parsedFecha) parsedFecha = new Date().toISOString().split('T')[0];
 
@@ -503,7 +480,7 @@ function parseExcelOrCSVToOrders(rows, colMapping) {
         }
 
         const order = ordersMap.get(consecutivoRaw);
-        const prod = findProductByCode(codigoRaw);
+        const prod = buscarProductoPorCodigo(codigoRaw);
 
         const quantity = parseNumberString(cantidadRaw);
         let price = parseNumberString(valUnitRaw);
@@ -555,7 +532,7 @@ export function renderCSVPreview() {
         }
 
         order.items.forEach(item => {
-            const prod = findProductByCode(item.codigo);
+            const prod = buscarProductoPorCodigo(item.codigo);
             if (!prod) {
                 errors.push(`Producto ${item.codigo} no existe`);
             } else {

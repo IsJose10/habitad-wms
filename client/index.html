@@ -50,9 +50,6 @@
                 <a href="#" class="nav-item" data-view="compras">
                     Órdenes de Compra
                 </a>
-                <a href="#" class="nav-item" data-view="servicios">
-                    Órdenes de Servicio
-                </a>
                 <a href="#" class="nav-item" data-view="ventas">
                     Ventas / Remision
                 </a>
@@ -245,12 +242,17 @@
                                     <h2>Detalle de Pre-Alistamiento: Remisión #<span id="pick-rem-id"></span></h2>
                                     <span class="badge" id="pick-rem-estado">Cargando</span>
                                 </div>
-                                <div class="text-muted" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; width: 100%;">
+                                <div class="text-muted"
+                                    style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; width: 100%;">
                                     <div><strong>Cliente:</strong> <span id="pick-rem-cliente"></span></div>
                                     <div><strong>Fecha Factura:</strong> <span id="pick-rem-fecha"></span></div>
                                     <div class="flex-row align-items-center gap-1" style="margin-left: auto;">
-                                        <label for="pick-auxiliar-input" style="font-weight: 600; margin: 0; color: var(--text-secondary);">Auxiliar Asignado:</label>
-                                        <input type="text" id="pick-auxiliar-input" class="form-control form-control-sm" placeholder="Nombre del Auxiliar" style="width: 200px; padding: 4px 8px; font-size: 0.85rem; height: 30px;">
+                                        <label for="pick-auxiliar-input"
+                                            style="font-weight: 600; margin: 0; color: var(--text-secondary);">Auxiliar
+                                            Asignado:</label>
+                                        <input type="text" id="pick-auxiliar-input" class="form-control form-control-sm"
+                                            placeholder="Nombre del Auxiliar"
+                                            style="width: 200px; padding: 4px 8px; font-size: 0.85rem; height: 30px;">
                                     </div>
                                 </div>
                             </div>
@@ -261,9 +263,12 @@
                                     <div class="picking-monta-alert-icon">🏗️</div>
                                     <div class="picking-monta-alert-text">
                                         <strong>Productos en Alta Estantería — Requieren Montacarguista</strong>
-                                        <span>Los productos indicados están en posiciones ≥ 20 (rack alto). El montacarguista debe bajarlos al nivel de picking antes del alistamiento auxiliar.</span>
+                                        <span>Los productos indicados están en posiciones ≥ 20 (rack alto). El
+                                            montacarguista debe bajarlos al nivel de picking antes del alistamiento
+                                            auxiliar.</span>
                                     </div>
-                                    <button class="btn btn-warning btn-sm" onclick="imprimirBajadaMontacarguista()" style="white-space:nowrap;">
+                                    <button class="btn btn-warning btn-sm" onclick="imprimirBajadaMontacarguista()"
+                                        style="white-space:nowrap;">
                                         🖨️ Generar Documento Descenso
                                     </button>
                                 </div>
@@ -286,8 +291,10 @@
 
                             <!-- TABLA AUXILIAR: productos en posición 10–19 -->
                             <div class="table-responsive">
-                                <div id="picking-aux-header" style="padding:8px 12px; background:var(--surface-secondary,#f0f4ff); border-radius:6px; margin-bottom:8px; font-size:0.85rem; color:var(--text-secondary); display:none;">
-                                    🧑‍🔧 <strong>Zona Auxiliar</strong> — Solo se muestran productos en posición 10–19 (accesibles sin montacargas)
+                                <div id="picking-aux-header"
+                                    style="padding:8px 12px; background:var(--surface-secondary,#f0f4ff); border-radius:6px; margin-bottom:8px; font-size:0.85rem; color:var(--text-secondary); display:none;">
+                                    🧑‍🔧 <strong>Zona Auxiliar</strong> — Solo se muestran productos en posición 10–19
+                                    (accesibles sin montacargas)
                                 </div>
                                 <table class="table picking-table">
                                     <thead>
@@ -305,10 +312,14 @@
                                     </tbody>
                                 </table>
                             </div>
-                            <div class="card-footer" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; align-items:center;">
+                            <div class="card-footer"
+                                style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; align-items:center;">
                                 <button class="btn btn-secondary" onclick="cancelarPicking()">Cancelar</button>
-                                <button class="btn btn-warning" id="btnDocMonta" onclick="imprimirBajadaMontacarguista()" style="display:none;">🏗️ Imprimir Bajada Montacarguista</button>
-                                <button class="btn btn-primary" onclick="imprimirPickingAuxiliar()">🧑‍🔧 Imprimir Hoja Auxiliar</button>
+                                <button class="btn btn-warning" id="btnDocMonta"
+                                    onclick="imprimirBajadaMontacarguista()" style="display:none;">🏗️ Imprimir Bajada
+                                    Montacarguista</button>
+                                <button class="btn btn-primary" onclick="imprimirPickingAuxiliar()">🧑‍🔧 Imprimir Hoja
+                                    Auxiliar</button>
                                 <button class="btn btn-success" id="btnConfirmarPicking"
                                     onclick="confirmarAlistamientoVenta()">Confirmar Picking y Despacho</button>
                             </div>
@@ -320,8 +331,10 @@
                 <section id="view-inventario" class="view-pane">
                     <!-- Tabs de Inventario -->
                     <div class="flex-row gap-2 mb-3">
-                        <button class="btn btn-primary" id="inv-tab-consulta" onclick="switchInvTab('consulta')">Consulta de Inventario</button>
-                        <button class="btn btn-secondary" id="inv-tab-masivo" onclick="switchInvTab('masivo')">Carga Inventario General (Ciego)</button>
+                        <button class="btn btn-primary" id="inv-tab-consulta"
+                            onclick="switchInvTab('consulta')">Consulta de Inventario</button>
+                        <button class="btn btn-secondary" id="inv-tab-masivo" onclick="switchInvTab('masivo')">Carga
+                            Inventario General (Ciego)</button>
                     </div>
 
                     <!-- TAB 1: CONSULTA DE INVENTARIO -->
@@ -358,25 +371,36 @@
                             <h2>Carga Masiva de Inventario General (Ciego)</h2>
                         </div>
                         <div class="card-body">
-                            <div class="mb-4" style="background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); padding: 18px; border-radius: var(--radius-md);">
-                                <h3 style="color: var(--color-danger); font-size: 1.1rem; margin-bottom: 8px;">🚨 ATENCIÓN - OPERACIÓN CRÍTICA:</h3>
+                            <div class="mb-4"
+                                style="background-color: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); padding: 18px; border-radius: var(--radius-md);">
+                                <h3 style="color: var(--color-danger); font-size: 1.1rem; margin-bottom: 8px;">🚨
+                                    ATENCIÓN - OPERACIÓN CRÍTICA:</h3>
                                 <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">
-                                    Subir el archivo de conteo físico general <strong>ELIMINARÁ Y REEMPLAZARÁ</strong> todo el stock del sistema. Todos los movimientos históricos de inventario se borrarán, estableciendo esta carga como el nuevo stock oficial (Conteo Físico Ciego). El sistema se encargará de realizar el encuadre posterior de manera ciega.
+                                    Subir el archivo de conteo físico general <strong>ELIMINARÁ Y REEMPLAZARÁ</strong>
+                                    todo el stock del sistema. Todos los movimientos históricos de inventario se
+                                    borrarán, estableciendo esta carga como el nuevo stock oficial (Conteo Físico
+                                    Ciego). El sistema se encargará de realizar el encuadre posterior de manera ciega.
                                 </p>
                                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 6px;">
-                                    * Si un producto en la lista no existe en el catálogo, la base de datos lo creará automáticamente con la descripción <code>"PRODUCTO NUEVO (CARGA CIEGA)"</code> y dimensiones por defecto.
+                                    * Si un producto en la lista no existe en el catálogo, la base de datos lo creará
+                                    automáticamente con la descripción <code>"PRODUCTO NUEVO (CARGA CIEGA)"</code> y
+                                    dimensiones por defecto.
                                 </p>
-                                <button class="btn btn-secondary btn-sm mt-3" onclick="descargarPlantillaInventarioGeneral()">Descargar Plantilla de Carga Excel</button>
+                                <button class="btn btn-secondary btn-sm mt-3"
+                                    onclick="descargarPlantillaInventarioGeneral()">Descargar Plantilla de Carga
+                                    Excel</button>
                             </div>
 
                             <div class="form-group mb-4">
                                 <label for="inv-file-input">Seleccionar Archivo de Conteo Físico (Excel o CSV)</label>
-                                <input type="file" id="inv-file-input" class="form-control" accept=".csv, .xlsx, .xls" onchange="procesarArchivoInventarioGeneral()">
+                                <input type="file" id="inv-file-input" class="form-control" accept=".csv, .xlsx, .xls"
+                                    onchange="procesarArchivoInventarioGeneral()">
                             </div>
 
                             <!-- Vista previa de importación de inventario -->
                             <div id="inv-preview-panel" style="display:none;" class="mt-4">
-                                <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Vista Previa de Carga de Inventario</h3>
+                                <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Vista Previa de Carga de Inventario
+                                </h3>
                                 <div class="table-responsive">
                                     <table class="table">
                                         <thead>
@@ -394,8 +418,11 @@
                                     </table>
                                 </div>
                                 <div class="text-right mt-3">
-                                    <button class="btn btn-secondary mr-2" onclick="cancelarImportacionInventarioGeneral()">Cancelar</button>
-                                    <button class="btn btn-success" id="btnConfirmarInventarioGeneral" onclick="confirmarImportacionInventarioGeneral()" disabled>Confirmar e Iniciar Inventario General</button>
+                                    <button class="btn btn-secondary mr-2"
+                                        onclick="cancelarImportacionInventarioGeneral()">Cancelar</button>
+                                    <button class="btn btn-success" id="btnConfirmarInventarioGeneral"
+                                        onclick="confirmarImportacionInventarioGeneral()" disabled>Confirmar e Iniciar
+                                        Inventario General</button>
                                 </div>
                             </div>
                         </div>
@@ -741,13 +768,18 @@
                         <div class="card-body">
                             <div class="mb-4"
                                 style="background-color: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); padding: 18px; border-radius: var(--radius-md);">
-                                <h3 style="color: #60a5fa; font-size: 1.1rem; margin-bottom: 8px;">Carga de Archivos de Excel o CSV:</h3>
+                                <h3 style="color: #60a5fa; font-size: 1.1rem; margin-bottom: 8px;">Carga de Archivos de
+                                    Excel o CSV:</h3>
                                 <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">
-                                    Puede subir su archivo real de órdenes de compra en formato <strong>Excel (.xlsx, .xls)</strong> o <strong>CSV (.csv)</strong>. 
-                                    El sistema detecta automáticamente las columnas mediante el análisis inteligente de encabezados (ej: <i>OC #, Código, Descripción, Tercero, Cant. Pedi., Um. Comp., Um. Cons., Fecha</i>, etc.).
+                                    Puede subir su archivo real de órdenes de compra en formato <strong>Excel (.xlsx,
+                                        .xls)</strong> o <strong>CSV (.csv)</strong>.
+                                    El sistema detecta automáticamente las columnas mediante el análisis inteligente de
+                                    encabezados (ej: <i>OC #, Código, Descripción, Tercero, Cant. Pedi., Um. Comp., Um.
+                                        Cons., Fecha</i>, etc.).
                                 </p>
                                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 6px;">
-                                    * Soporta celdas combinadas y valores en formato local español (ej: cantidades como <code>20.000,00</code>).
+                                    * Soporta celdas combinadas y valores en formato local español (ej: cantidades como
+                                    <code>20.000,00</code>).
                                 </p>
                                 <button class="btn btn-secondary btn-sm mt-3"
                                     onclick="descargarPlantillaCSV()">Descargar Plantilla Excel</button>
@@ -792,106 +824,7 @@
                     </div>
                 </section>
 
-                <!-- 8. VIEW: ÓRDENES DE SERVICIO (OS) -->
-                <section id="view-servicios" class="view-pane">
-                    <div class="card">
-                        <div class="card-header justify-between">
-                            <h2>Crear Orden de Servicio</h2>
-                            <div class="flex-row gap-2">
-                                <input type="text" id="consultar-os-id" class="form-control w-auto"
-                                    placeholder="Buscar OS Consecutivo">
-                                <button class="btn btn-secondary btn-sm" onclick="consultarOSForm()">Consultar</button>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-row">
-                                <div class="form-group flex-1">
-                                    <label for="os-consecutivo">No. Orden de Servicio</label>
-                                    <input type="text" id="os-consecutivo" class="form-control">
-                                </div>
-                                <div class="form-group flex-1">
-                                    <label for="os-fecha">Fecha Emisión</label>
-                                    <input type="date" id="os-fecha" class="form-control">
-                                </div>
-                                <div class="form-group flex-1">
-                                    <label for="os-fecha-envio">Fecha Envío</label>
-                                    <input type="date" id="os-fecha-envio" class="form-control">
-                                </div>
-                            </div>
 
-                            <div class="form-row">
-                                <div class="form-group flex-1">
-                                    <label for="os-proveedor">Proveedor / Prestador</label>
-                                    <select id="os-proveedor" class="form-control"
-                                        onchange="cargarDatosProveedorOS()"></select>
-                                </div>
-                                <div class="form-group flex-1">
-                                    <label for="os-condiciones">Condiciones de Envío</label>
-                                    <input type="text" id="os-condiciones" class="form-control"
-                                        placeholder="Condiciones del servicio">
-                                </div>
-                                <div class="form-group flex-1">
-                                    <label for="os-forma-pago">Forma de Pago</label>
-                                    <input type="text" id="os-forma-pago" class="form-control"
-                                        placeholder="Ej: CONSIGNACION, EFECTIVO">
-                                </div>
-                            </div>
-
-                            <div class="form-row text-muted" style="font-size:0.9rem;" id="os-proveedor-detalles">
-                                <!-- Dinámico -->
-                            </div>
-
-                            <h3 class="mt-4">Servicios e Ítems</h3>
-                            <div class="table-responsive">
-                                <table class="table">
-                                    <thead>
-                                        <tr>
-                                            <th style="width: 5%">Item</th>
-                                            <th style="width: 25%">Código</th>
-                                            <th style="width: 35%">Descripción del Servicio</th>
-                                            <th style="width: 10%">Cantidad</th>
-                                            <th style="width: 10%">V. Unitario</th>
-                                            <th style="width: 10%">Total</th>
-                                            <th style="width: 5%">Acción</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="os-items-table-body">
-                                        <!-- Dinámico -->
-                                    </tbody>
-                                </table>
-                            </div>
-                            <button class="btn btn-secondary btn-sm mt-2" onclick="agregarFilaItemOS()">+ Agregar
-                                Items</button>
-
-                            <div class="form-row mt-4">
-                                <div class="form-group flex-2">
-                                    <label for="os-observaciones">Observaciones</label>
-                                    <textarea id="os-observaciones" class="form-control" rows="3"></textarea>
-                                </div>
-                                <div class="form-group flex-1 text-right">
-                                    <div class="total-row"><span>Descuento:</span> <input type="number"
-                                            id="os-descuento" class="form-control text-right d-inline w-50" value="0"
-                                            oninput="calcularTotalesOS()"></div>
-                                    <div class="total-row"><span>IVA:</span> <input type="number" id="os-iva"
-                                            class="form-control text-right d-inline w-50" value="0"
-                                            oninput="calcularTotalesOS()">%</div>
-                                    <div class="total-row"><span>Retención:</span> <input type="number"
-                                            id="os-retencion" class="form-control text-right d-inline w-50" value="6"
-                                            oninput="calcularTotalesOS()">%</div>
-                                    <hr>
-                                    <div class="total-row font-bold"><span>Total General:</span> <span
-                                            id="os-total-general">$0.00</span></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card-footer text-right">
-                            <button class="btn btn-secondary mr-2" onclick="limpiarFormOS()">Limpiar</button>
-                            <button class="btn btn-primary mr-2" onclick="imprimirDocumento('OS')">Generar PDF /
-                                Imprimir</button>
-                            <button class="btn btn-success" onclick="guardarOS()">Guardar Orden de Servicio</button>
-                        </div>
-                    </div>
-                </section>
 
                 <!-- 9. VIEW: VENTAS / REMISIÓN -->
                 <section id="view-ventas" class="view-pane">
@@ -978,8 +911,10 @@
                 <!-- 10. VIEW: CATÁLOGO PRODUCTOS -->
                 <section id="view-productos" class="view-pane">
                     <div class="flex-row gap-2 mb-3">
-                        <button class="btn btn-primary" id="prod-tab-formulario" onclick="switchProdTab('formulario')">Crear / Actualizar</button>
-                        <button class="btn btn-secondary" id="prod-tab-masiva" onclick="switchProdTab('masiva')">Subida Masiva (CSV)</button>
+                        <button class="btn btn-primary" id="prod-tab-formulario"
+                            onclick="switchProdTab('formulario')">Crear / Actualizar</button>
+                        <button class="btn btn-secondary" id="prod-tab-masiva" onclick="switchProdTab('masiva')">Subida
+                            Masiva (CSV)</button>
                     </div>
 
                     <div id="prod-pane-formulario" class="card">
@@ -1070,25 +1005,33 @@
                         </div>
                         <div class="card-body">
                             <div class="mb-4 alert-info">
-                                <h3 style="color: #60a5fa; font-size: 1.1rem; margin-bottom: 8px;">Carga de Catálogo en Excel o CSV:</h3>
+                                <h3 style="color: #60a5fa; font-size: 1.1rem; margin-bottom: 8px;">Carga de Catálogo en
+                                    Excel o CSV:</h3>
                                 <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">
-                                    Puede subir su catálogo de productos en formato <strong>Excel (.xlsx, .xls)</strong> o <strong>CSV (.csv)</strong>. 
-                                    El sistema detecta automáticamente las columnas mediante el análisis de encabezados (ej: <i>Código, Descripción, Peso (Kg), Valor Venta, Marca, Unidad Compra</i>, etc.).
+                                    Puede subir su catálogo de productos en formato <strong>Excel (.xlsx, .xls)</strong>
+                                    o <strong>CSV (.csv)</strong>.
+                                    El sistema detecta automáticamente las columnas mediante el análisis de encabezados
+                                    (ej: <i>Código, Descripción, Peso (Kg), Valor Venta, Marca, Unidad Compra</i>,
+                                    etc.).
                                 </p>
                                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 6px;">
-                                    * Los campos de código y descripción son obligatorios. Las unidades vacías tomarán valores por defecto.
+                                    * Los campos de código y descripción son obligatorios. Las unidades vacías tomarán
+                                    valores por defecto.
                                 </p>
-                                <button class="btn btn-secondary btn-sm mt-3" onclick="descargarPlantillaCSVProductos()">Descargar Plantilla Excel</button>
+                                <button class="btn btn-secondary btn-sm mt-3"
+                                    onclick="descargarPlantillaCSVProductos()">Descargar Plantilla Excel</button>
                             </div>
 
                             <div class="form-group mb-4">
                                 <label for="csv-file-input-prod">Seleccionar Archivo (Excel o CSV)</label>
-                                <input type="file" id="csv-file-input-prod" class="form-control" accept=".csv, .xlsx, .xls" onchange="procesarArchivoCSVProductos()">
+                                <input type="file" id="csv-file-input-prod" class="form-control"
+                                    accept=".csv, .xlsx, .xls" onchange="procesarArchivoCSVProductos()">
                             </div>
 
                             <!-- Vista previa de importación -->
                             <div id="csv-preview-panel-prod" style="display:none;" class="mt-4">
-                                <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Vista Previa de Productos a Importar</h3>
+                                <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Vista Previa de Productos a Importar
+                                </h3>
                                 <div class="table-responsive">
                                     <table class="table">
                                         <thead>
@@ -1109,8 +1052,11 @@
                                     </table>
                                 </div>
                                 <div class="text-right mt-3">
-                                    <button class="btn btn-secondary mr-2" onclick="cancelarImportacionCSVProductos()">Cancelar</button>
-                                    <button class="btn btn-success" id="btnConfirmarImportacionCSVProd" onclick="confirmarImportacionCSVProductos()" disabled>Confirmar e Importar Productos</button>
+                                    <button class="btn btn-secondary mr-2"
+                                        onclick="cancelarImportacionCSVProductos()">Cancelar</button>
+                                    <button class="btn btn-success" id="btnConfirmarImportacionCSVProd"
+                                        onclick="confirmarImportacionCSVProductos()" disabled>Confirmar e Importar
+                                        Productos</button>
                                 </div>
                             </div>
                         </div>
@@ -1207,8 +1153,10 @@
                 <!-- 12. VIEW: PROVEEDORES -->
                 <section id="view-proveedores" class="view-pane">
                     <div class="flex-row gap-2 mb-3">
-                        <button class="btn btn-primary" id="prov-tab-formulario" onclick="switchProvTab('formulario')">Crear / Actualizar</button>
-                        <button class="btn btn-secondary" id="prov-tab-masiva" onclick="switchProvTab('masiva')">Subida Masiva (CSV)</button>
+                        <button class="btn btn-primary" id="prov-tab-formulario"
+                            onclick="switchProvTab('formulario')">Crear / Actualizar</button>
+                        <button class="btn btn-secondary" id="prov-tab-masiva" onclick="switchProvTab('masiva')">Subida
+                            Masiva (CSV)</button>
                     </div>
 
                     <div id="prov-pane-formulario" class="card">
@@ -1253,25 +1201,31 @@
                         </div>
                         <div class="card-body">
                             <div class="mb-4 alert-info">
-                                <h3 style="color: #60a5fa; font-size: 1.1rem; margin-bottom: 8px;">Carga de Proveedores en Excel o CSV:</h3>
+                                <h3 style="color: #60a5fa; font-size: 1.1rem; margin-bottom: 8px;">Carga de Proveedores
+                                    en Excel o CSV:</h3>
                                 <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">
-                                    Puede subir su listado de proveedores en formato <strong>Excel (.xlsx, .xls)</strong> o <strong>CSV (.csv)</strong>. 
-                                    El sistema detecta automáticamente las columnas mediante el análisis de encabezados (ej: <i>Cédula o NIT, Nombre / Razón Social, Teléfono, Dirección, Correo</i>, etc.).
+                                    Puede subir su listado de proveedores en formato <strong>Excel (.xlsx,
+                                        .xls)</strong> o <strong>CSV (.csv)</strong>.
+                                    El sistema detecta automáticamente las columnas mediante el análisis de encabezados
+                                    (ej: <i>Cédula o NIT, Nombre / Razón Social, Teléfono, Dirección, Correo</i>, etc.).
                                 </p>
                                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 6px;">
                                     * Los campos de NIT/cédula y nombre son obligatorios.
                                 </p>
-                                <button class="btn btn-secondary btn-sm mt-3" onclick="descargarPlantillaCSVProveedores()">Descargar Plantilla Excel</button>
+                                <button class="btn btn-secondary btn-sm mt-3"
+                                    onclick="descargarPlantillaCSVProveedores()">Descargar Plantilla Excel</button>
                             </div>
 
                             <div class="form-group mb-4">
                                 <label for="csv-file-input-prov">Seleccionar Archivo (Excel o CSV)</label>
-                                <input type="file" id="csv-file-input-prov" class="form-control" accept=".csv, .xlsx, .xls" onchange="procesarArchivoCSVProveedores()">
+                                <input type="file" id="csv-file-input-prov" class="form-control"
+                                    accept=".csv, .xlsx, .xls" onchange="procesarArchivoCSVProveedores()">
                             </div>
 
                             <!-- Vista previa de importación -->
                             <div id="csv-preview-panel-prov" style="display:none;" class="mt-4">
-                                <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Vista Previa de Proveedores a Importar</h3>
+                                <h3 style="font-size: 1.1rem; margin-bottom: 12px;">Vista Previa de Proveedores a
+                                    Importar</h3>
                                 <div class="table-responsive">
                                     <table class="table">
                                         <thead>
@@ -1290,8 +1244,11 @@
                                     </table>
                                 </div>
                                 <div class="text-right mt-3">
-                                    <button class="btn btn-secondary mr-2" onclick="cancelarImportacionCSVProveedores()">Cancelar</button>
-                                    <button class="btn btn-success" id="btnConfirmarImportacionCSVProv" onclick="confirmarImportacionCSVProveedores()" disabled>Confirmar e Importar Proveedores</button>
+                                    <button class="btn btn-secondary mr-2"
+                                        onclick="cancelarImportacionCSVProveedores()">Cancelar</button>
+                                    <button class="btn btn-success" id="btnConfirmarImportacionCSVProv"
+                                        onclick="confirmarImportacionCSVProveedores()" disabled>Confirmar e Importar
+                                        Proveedores</button>
                                 </div>
                             </div>
                         </div>
@@ -1330,24 +1287,30 @@
     <div id="monta-desglose-modal" class="modal" style="display:none;">
         <div class="modal-content modal-xl">
             <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 16px;">
-                <h2 style="font-weight: 700; color: var(--text-primary);">🏗️ Desglose de Factura: Remisión #<span id="monta-desg-rem-id" style="color: var(--color-primary);"></span></h2>
-                <span class="close" onclick="cerrarDesgloseFacturaMonta()" style="font-size: 1.8rem; cursor: pointer; color: var(--text-muted);">&times;</span>
+                <h2 style="font-weight: 700; color: var(--text-primary);">🏗️ Desglose de Factura: Remisión #<span
+                        id="monta-desg-rem-id" style="color: var(--color-primary);"></span></h2>
+                <span class="close" onclick="cerrarDesgloseFacturaMonta()"
+                    style="font-size: 1.8rem; cursor: pointer; color: var(--text-muted);">&times;</span>
             </div>
             <div style="padding: 16px 0;">
                 <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.4;">
-                    🧑‍🔧 <strong>Panel de Descenso</strong>: Revise los productos requeridos. Si no hay suficiente stock en las posiciones bajas de picking (posiciones que terminan en 10 o 14), debe hacer clic en <strong>"Bajar a Picking (Descenso)"</strong>. El montacargas tomará automáticamente la mercancía desde la posición alta disponible más cercana/alta (pos >= 20) y la transferirá a la zona de picking del vano correspondiente.
+                    🧑‍🔧 <strong>Panel de Descenso</strong>: Revise los productos requeridos. Si no hay suficiente
+                    stock en las posiciones bajas de picking (posiciones que terminan en 10 o 14), debe hacer clic en
+                    <strong>"Bajar a Picking (Descenso)"</strong>. El montacargas tomará automáticamente la mercancía
+                    desde la posición alta disponible más cercana/alta (pos >= 20) y la transferirá a la zona de picking
+                    del vano correspondiente.
                 </p>
                 <div class="table-responsive">
                     <table class="table">
                         <thead>
-                           <tr>
-                               <th>Producto</th>
-                               <th class="text-center">Cant. Requerida</th>
-                               <th class="text-center">Stock Picking (10/14)</th>
-                               <th class="text-center">Estado Picking</th>
-                               <th>Stock Rack Alto (pos >= 20)</th>
-                               <th class="text-center" style="width: 180px;">Acción Descenso</th>
-                           </tr>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="text-center">Cant. Requerida</th>
+                                <th class="text-center">Stock Picking (10/14)</th>
+                                <th class="text-center">Estado Picking</th>
+                                <th>Stock Rack Alto (pos >= 20)</th>
+                                <th class="text-center" style="width: 180px;">Acción Descenso</th>
+                            </tr>
                         </thead>
                         <tbody id="monta-desglose-body">
                             <!-- Dinámico -->
@@ -1355,7 +1318,8 @@
                     </table>
                 </div>
             </div>
-            <div class="modal-footer" style="border-top: 1px solid var(--border-color); padding-top: 16px; text-align: right;">
+            <div class="modal-footer"
+                style="border-top: 1px solid var(--border-color); padding-top: 16px; text-align: right;">
                 <button class="btn btn-secondary" onclick="cerrarDesgloseFacturaMonta()">Cerrar Desglose</button>
             </div>
         </div>

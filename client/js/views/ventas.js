@@ -1,6 +1,6 @@
 import { state } from '../state.js';
 import { fetchAPI } from '../api.js';
-import { formatoMoneda } from '../utils.js';
+import { formatoMoneda, calcularTotalLinea, calcularIVA } from '../utils.js';
 
 let ventaItemCount = 0;
 
@@ -89,14 +89,14 @@ export function calcularTotalesVenta() {
     rows.forEach(row => {
         const qty = Number(row.querySelector('.venta-item-qty').value) || 0;
         const unit = Number(row.querySelector('.venta-item-unit').value) || 0;
-        const total = qty * unit;
+        const total = calcularTotalLinea(qty, unit);
         subtotal += total;
 
         row.querySelector('.venta-item-total').textContent = formatoMoneda(total);
     });
 
     const ivaPct = Number(document.getElementById('venta-iva').value) || 0;
-    const valorIVA = subtotal * (ivaPct / 100);
+    const valorIVA = calcularIVA(subtotal, ivaPct);
     const totalGeneral = subtotal + valorIVA;
 
     document.getElementById('venta-total-general').textContent = formatoMoneda(totalGeneral);

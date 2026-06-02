@@ -14,7 +14,7 @@ let csvParsedInventario = [];
 const invAliasMap = {
     codigo: ['codigo', 'código', 'codigo_producto', 'producto', 'código producto', 'codigo producto', 'ref', 'referencia'],
     ubicacion: ['ubicacion', 'ubicación', 'posicion', 'posición', 'celda', 'ubicación física', 'ubicacion fisica'],
-    cantidad: ['cantidad', 'cant', 'conteo', 'stock', 'cantidad física', 'cantidad fisica']
+    cantidad: ['cantidad', 'cant', 'conteo', 'stock', 'cantidad física', 'cantidad fisica', 'cantidad fisico', 'cantidad físico']
 };
 
 export async function loadStockGlobal() {
@@ -172,30 +172,107 @@ export function procesarArchivoInventarioGeneral() {
 export function parseExcelOrCSVToInventario(rows, colMapping) {
     const list = [];
     const startIndex = colMapping._headerIndex + 1;
+    const hasLocationColumn = colMapping.ubicacion !== -1;
 
     for (let i = startIndex; i < rows.length; i++) {
         const row = rows[i];
         if (!row || !Array.isArray(row) || row.length === 0) continue;
 
         let codigo = colMapping.codigo !== -1 ? String(row[colMapping.codigo] || '').trim() : '';
-        let ubicacion = colMapping.ubicacion !== -1 ? String(row[colMapping.ubicacion] || '').trim() : '';
+        let ubicacion = hasLocationColumn ? String(row[colMapping.ubicacion] || '').trim() : '';
         let cantidad = colMapping.cantidad !== -1 ? String(row[colMapping.cantidad] || '').trim() : '';
 
-        if (!codigo || !ubicacion) continue;
+        if (!codigo) continue;
 
-        // Formatear ubicación
-        ubicacion = ubicacion.toUpperCase().trim();
-        if (!ubicacion.startsWith('V') && ubicacion.length === 6) {
-            ubicacion = 'V' + ubicacion;
+        // Formatear ubicación si está presente
+        if (ubicacion) {
+            ubicacion = ubicacion.toUpperCase().trim();
+            if (!ubicacion.startsWith('V') && ubicacion.length === 6) {
+                ubicacion = 'V' + ubicacion;
+            }
         }
 
         list.push({
             codigo,
-            ubicacion,
+            ubicacion: ubicacion || null,
             cantidad: parseNumberString(cantidad)
         });
     }
+
+    if (!hasLocationColumn) {
+        alert("ℹ️ El archivo no contiene columna de ubicaciones. El sistema distribuirá automáticamente el stock físico en las posiciones disponibles del almacén siguiendo reglas volumétricas (Slotting).");
+        return autoSlotInventario(list);
+    }
+
     return list;
+}
+
+export function autoSlotInventario(list) {
+    const vanos = ['01', '02', '03'];
+    const niveles = Array.from({ length: 40 }, (_, i) => String(i + 1).padStart(2, '0'));
+    const pickingPositions = ['10', '14'];
+    const highPositions = ['20', '24', '30', '34', '40', '44', '50', '54', '60', '64'];
+    const MAX_VOLUME = 5760000; // cm3
+    
+    // Generar todas las ubicaciones en altura en orden
+    const highLocsPool = [];
+    for (const v of vanos) {
+        for (const n of niveles) {
+            for (const p of highPositions) {
+                highLocsPool.push(`V${v}${n}${p}`);
+            }
+        }
+    }
+    
+    let highLocIdx = 0;
+    const slottedList = [];
+    
+    list.forEach((item, idx) => {
+        let qty = item.cantidad;
+        if (qty <= 0) return;
+        
+        // Buscar dimensiones del producto en el catálogo (state.productos)
+        const prod = state.productos.find(p => p.codigo === item.codigo);
+        const alto = prod ? (prod.alto || 10.0) : 10.0;
+        const largo = prod ? (prod.largo || 10.0) : 10.0;
+        const ancho = prod ? (prod.ancho || 10.0) : 10.0;
+        const vol = alto * largo * ancho;
+        
+        let maxQtyPerCell = Math.floor(MAX_VOLUME / (vol || 1000.0));
+        if (maxQtyPerCell <= 0) maxQtyPerCell = 1;
+        
+        // 1. Asignar picking en Nivel 01
+        const pVano = vanos[idx % vanos.length];
+        const pPos = pickingPositions[Math.floor(idx / vanos.length) % pickingPositions.length];
+        const pickingLoc = `V${pVano}01${pPos}`;
+        
+        const pickingQty = Math.min(qty, maxQtyPerCell, 1000);
+        slottedList.push({
+            codigo: item.codigo,
+            ubicacion: pickingLoc,
+            cantidad: pickingQty
+        });
+        qty -= pickingQty;
+        
+        // 2. Asignar el resto en ubicaciones de altura
+        while (qty > 0) {
+            if (highLocIdx >= highLocsPool.length) {
+                console.warn("Capacidad de almacén agotada durante la distribución automática.");
+                break;
+            }
+            const targetLoc = highLocsPool[highLocIdx];
+            const qtyToPlace = Math.min(qty, maxQtyPerCell);
+            slottedList.push({
+                codigo: item.codigo,
+                ubicacion: targetLoc,
+                cantidad: qtyToPlace
+            });
+            qty -= qtyToPlace;
+            highLocIdx++;
+        }
+    });
+    
+    return slottedList;
 }
 
 export function renderInventarioCSVPreview() {

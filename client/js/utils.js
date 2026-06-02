@@ -1,7 +1,52 @@
-import { state } from './state.js';
+import { state, UBICACION } from './state.js';
 
+/**
+ * Formatea un número como moneda colombiana (COP)
+ * @param {number} valor - Valor numérico a formatear
+ * @returns {string} Valor formateado como moneda
+ */
 export function formatoMoneda(valor) {
     return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(valor || 0);
+}
+
+/**
+ * Formatea un número con separadores de miles
+ * @param {number} valor - Valor numérico a formatear
+ * @returns {string} Valor formateado con separadores
+ */
+export function formatoNumero(valor) {
+    return new Intl.NumberFormat('es-CO').format(valor || 0);
+}
+
+/**
+ * Calcula el total de una línea de detalle (cantidad × precio unitario)
+ * @param {number} cantidad - Cantidad de unidades
+ * @param {number} precioUnitario - Precio por unidad
+ * @returns {number} Total calculado
+ */
+export function calcularTotalLinea(cantidad, precioUnitario) {
+    return (cantidad || 0) * (precioUnitario || 0);
+}
+
+/**
+ * Calcula el subtotal de un array de items
+ * @param {Array} items - Array de objetos con propiedades cantidad y precio
+ * @returns {number} Subtotal calculado
+ */
+export function calcularSubtotal(items) {
+    return items.reduce((sum, item) => {
+        return sum + calcularTotalLinea(item.cantidad, item.precio || item.valor_venta);
+    }, 0);
+}
+
+/**
+ * Calcula el IVA sobre un monto base
+ * @param {number} base - Monto base
+ * @param {number} porcentaje - Porcentaje de IVA (ej: 19)
+ * @returns {number} Valor del IVA
+ */
+export function calcularIVA(base, porcentaje) {
+    return (base || 0) * ((porcentaje || 0) / 100);
 }
 
 export function parseNumberString(value) {
@@ -401,6 +446,56 @@ export function initDateInputs() {
         const el = document.getElementById(id);
         if (el) el.value = today;
     });
+}
+
+/**
+ * Busca un proveedor por NIT o nombre (con coincidencia flexible)
+ * @param {string} terceroText - Texto a buscar (NIT o nombre)
+ * @returns {string} NIT del proveedor encontrado o texto original
+ */
+export function buscarProveedorNit(terceroText) {
+    if (!terceroText) return '';
+    const norm = terceroText.trim().toLowerCase();
+    
+    // Coincidencia exacta por nombre
+    let match = state.proveedores.find(p => p.nombre.trim().toLowerCase() === norm);
+    if (match) return match.nit;
+    
+    // Coincidencia exacta por NIT
+    match = state.proveedores.find(p => p.nit === terceroText.trim());
+    if (match) return match.nit;
+    
+    // Coincidencia parcial por nombre
+    match = state.proveedores.find(p => 
+        p.nombre.toLowerCase().includes(norm) || 
+        norm.includes(p.nombre.toLowerCase())
+    );
+    if (match) return match.nit;
+    
+    return terceroText.trim();
+}
+
+/**
+ * Busca un producto por código (con padding automático para códigos numéricos)
+ * @param {string} codeText - Código del producto a buscar
+ * @returns {Object|null} Producto encontrado o null
+ */
+export function buscarProductoPorCodigo(codeText) {
+    if (!codeText) return null;
+    const cleanCode = String(codeText).trim();
+    
+    // Coincidencia exacta
+    let prod = state.productos.find(p => p.codigo === cleanCode);
+    if (prod) return prod;
+    
+    // Si es numérico, intentar con padding de 5 dígitos
+    if (/^\d+$/.test(cleanCode)) {
+        const padded5 = cleanCode.padStart(5, '0');
+        prod = state.productos.find(p => p.codigo === padded5);
+        if (prod) return prod;
+    }
+    
+    return null;
 }
 
 // Bind to window for global availability

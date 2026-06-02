@@ -12,5 +12,8 @@
     "local-app"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "pg": "^8.21.0"
+  }
 }

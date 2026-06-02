@@ -107,13 +107,13 @@ const prodAliasMap = {
     codigo: ['codigo', 'código', 'referencia', 'ref', 'id', 'código producto', 'codigo producto', 'artículo', 'articulo'],
     descripcion: ['descripcion', 'descripción', 'nombre', 'producto', 'nombre producto', 'detalle'],
     peso: ['peso', 'peso_kg', 'peso (kg)', 'peso kg', 'peso neto'],
-    valor_venta: ['valor_venta', 'valor venta', 'precio', 'venta', 'valor', 'precio venta', 'precio de venta'],
+    valor_venta: ['valor_venta', 'valor venta', 'precio', 'venta', 'valor', 'precio venta', 'precio de venta', 'costo unitario', 'costo'],
     marca: ['marca', 'brand', 'fabricante'],
     alto: ['alto', 'alto_m', 'alto (m)', 'alto m', 'altura'],
     largo: ['largo', 'largo_m', 'largo (m)', 'largo m', 'longitud'],
     ancho: ['ancho', 'ancho_m', 'ancho (m)', 'ancho m', 'anchura'],
-    unidad_compra: ['unidad_compra', 'unidad compra', 'um compra', 'uom compra', 'um. comp.', 'u.m. compra'],
-    unidad_consumo: ['unidad_consumo', 'unidad consumo', 'um consumo', 'uom consumo', 'um. cons.', 'u.m. consumo']
+    unidad_compra: ['unidad_compra', 'unidad compra', 'um compra', 'uom compra', 'um. comp.', 'u.m. compra', 'unidad de compra'],
+    unidad_consumo: ['unidad_consumo', 'unidad consumo', 'um consumo', 'uom consumo', 'um. cons.', 'u.m. consumo', 'unidad de consumo']
 };
 
 export function switchProdTab(tab) {

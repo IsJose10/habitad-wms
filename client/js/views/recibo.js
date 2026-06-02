@@ -70,6 +70,7 @@ export async function cargarOCParaRecibo() {
         if (reciboPanel) reciboPanel.style.display = 'block';
     } catch (err) {
         console.error(err);
+        alert(`Error al cargar la Orden de Compra: ${err.message || err}`);
     }
 }
 
