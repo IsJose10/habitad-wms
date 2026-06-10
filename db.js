@@ -1,7 +1,9 @@
 const path = require('path');
 const { DatabaseSync } = require('node:sqlite');
+const crypto = require('crypto');
 
-const isPostgres = !!(process.env.DATABASE_URL && 
+
+const isPostgres = !!(process.env.DATABASE_URL &&
     (process.env.DATABASE_URL.startsWith('postgres://') || process.env.DATABASE_URL.startsWith('postgresql://')));
 
 let pgPool = null;
@@ -49,6 +51,14 @@ async function executeQuery(sql, params = []) {
 // Inicialización de Tablas de forma segura según el motor detectado
 async function initTables() {
     if (isPostgres) {
+        await executeQuery(`
+            CREATE TABLE IF NOT EXISTS usuarios (
+                username TEXT PRIMARY KEY,
+                password_hash TEXT NOT NULL,
+                otp TEXT,
+                otp_expiry BIGINT
+            );
+        `);
         await executeQuery(`
             CREATE TABLE IF NOT EXISTS clientes (
                 nit TEXT PRIMARY KEY,
@@ -121,6 +131,13 @@ async function initTables() {
                 ubicacion TEXT NOT NULL,
                 FOREIGN KEY(codigo_producto) REFERENCES productos(codigo)
             );
+                        CREATE TABLE IF NOT EXISTS usuarios (
+                username TEXT PRIMARY KEY,
+                password_hash TEXT NOT NULL,
+                otp TEXT,
+                otp_expiry INTEGER
+            );
+
         `);
         try {
             await executeQuery(`CREATE INDEX IF NOT EXISTS idx_movimientos_producto ON inventario_movimientos(codigo_producto);`);
@@ -131,6 +148,12 @@ async function initTables() {
         }
     } else {
         sqliteDb.exec(`
+            CREATE TABLE IF NOT EXISTS usuarios (
+                username TEXT PRIMARY KEY,
+                password_hash TEXT NOT NULL,
+                otp TEXT,
+                otp_expiry INTEGER
+            );
             CREATE TABLE IF NOT EXISTS clientes (
                 nit TEXT PRIMARY KEY,
                 nombre TEXT NOT NULL,
@@ -205,7 +228,7 @@ async function initTables() {
         } else {
             sqliteDb.exec(`ALTER TABLE ventas ADD COLUMN auxiliar TEXT;`);
         }
-    } catch (e) {}
+    } catch (e) { }
 
     try {
         if (isPostgres) {
@@ -213,7 +236,7 @@ async function initTables() {
         } else {
             sqliteDb.exec(`ALTER TABLE productos ADD COLUMN unidad_compra TEXT DEFAULT 'Und';`);
         }
-    } catch (e) {}
+    } catch (e) { }
 
     try {
         if (isPostgres) {
@@ -221,13 +244,13 @@ async function initTables() {
         } else {
             sqliteDb.exec(`ALTER TABLE productos ADD COLUMN unidad_consumo TEXT DEFAULT 'Und';`);
         }
-    } catch (e) {}
+    } catch (e) { }
 }
 
 // Semilla de base de datos
 async function seedDatabase() {
     console.log("Sembrando datos de ejemplo real...");
-    
+
     const proveedores = [
         { nit: '900111222', nombre: 'EL CHOCLO', telefono: '3001112233', direccion: 'Calle 10 # 5-20', correo: 'contacto@elchoclo.com' },
         { nit: '900333444', nombre: 'MM PACKAGING COLOMBIA', telefono: '3104445566', direccion: 'Zona Industrial Lote 4', correo: 'ventas@mm-packaging.co' },
@@ -279,6 +302,20 @@ async function seedDatabase() {
 // Inicialización asíncrona principal expuesta al servidor
 async function initDB() {
     await initTables();
+
+    // Sembrar el usuario único por defecto
+    try {
+        const users = await executeQuery("SELECT username FROM usuarios WHERE username = 'admin'");
+        if (users.length === 0) {
+            const defaultHash = crypto.createHash('sha256').update('admin123').digest('hex');
+            await executeQuery("INSERT INTO usuarios (username, password_hash) VALUES ('admin', ?)", [defaultHash]);
+            console.log("==================================================");
+            console.log("🔑 USUARIO DE SEGURIDAD CREADO: admin / admin123");
+            console.log("==================================================");
+        }
+    } catch (err) {
+        console.error("Error inicializando usuario administrador:", err);
+    }
     try {
         const prods = await executeQuery('SELECT codigo FROM productos LIMIT 1');
         if (prods.length === 0) {
@@ -300,7 +337,7 @@ async function getVolumeOcupado(ubicacion) {
         WHERE m.ubicacion = ?
         GROUP BY m.codigo_producto, p.alto, p.largo, p.ancho
     `, [ubicacion]);
-    
+
     let totalVol = 0;
     for (const r of rows) {
         const stock = Number(r.stock || 0);
@@ -326,7 +363,7 @@ async function validarDimensionesYVolumen(codigo_producto, cantidad, ubicacion) 
     const pAncho = Number(prod.ancho || 0);
 
     if (pAlto > 200 || pLargo > 240 || pAncho > 120) {
-        throw new Error(`El producto "${codigo_producto}" excede las dimensiones máximas permitidas de la estantería (alto: 2.0m, largo: 2.4m, ancho: 1.2m). Dimensiones del producto: alto ${pAlto/100}m, largo ${pLargo/100}m, ancho ${pAncho/100}m.`);
+        throw new Error(`El producto "${codigo_producto}" excede las dimensiones máximas permitidas de la estantería (alto: 2.0m, largo: 2.4m, ancho: 1.2m). Dimensiones del producto: alto ${pAlto / 100}m, largo ${pLargo / 100}m, ancho ${pAncho / 100}m.`);
     }
 
     const newVolume = cantidad * pAlto * pLargo * pAncho;
@@ -523,7 +560,7 @@ module.exports = {
             LEFT JOIN clientes c ON v.cliente_nit = c.nit
             WHERE v.remision = ?
         `, [remision]);
-        
+
         const venta = ventas[0];
         if (!venta) {
             throw new Error('No se encontró la factura/remisión especificada.');
@@ -747,7 +784,7 @@ module.exports = {
             const lvlA = parseInt(a.ubicacion.substring(3, 5), 10);
             const lvlB = parseInt(b.ubicacion.substring(3, 5), 10);
             if (lvlB !== lvlA) return lvlB - lvlA;
-            
+
             const posA = parseInt(a.ubicacion.substring(5, 7), 10);
             const posB = parseInt(b.ubicacion.substring(5, 7), 10);
             return posB - posA;
@@ -973,5 +1010,37 @@ module.exports = {
             documento_referencia: documentoReferencia,
             resumen
         };
+    },
+    // Métodos de Seguridad y Autenticación
+    async authenticateUser(username, password) {
+        const hash = crypto.createHash('sha256').update(password).digest('hex');
+        const rows = await executeQuery("SELECT username FROM usuarios WHERE username = ? AND password_hash = ?", [username, hash]);
+        return rows.length > 0;
+    },
+
+    async generateOTP(username) {
+        // Generar un número aleatorio de 6 dígitos
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = Date.now() + 10 * 60 * 1000; // 10 minutos de expiración
+        await executeQuery("UPDATE usuarios SET otp = ?, otp_expiry = ? WHERE username = ?", [otp, expiry, username]);
+        return otp;
+    },
+
+    async verifyOTPAndResetPassword(username, otp, newPassword) {
+        const rows = await executeQuery("SELECT otp, otp_expiry FROM usuarios WHERE username = ?", [username]);
+        if (rows.length === 0) {
+            throw new Error("Usuario no encontrado.");
+        }
+        const user = rows[0];
+        if (!user.otp || user.otp !== otp) {
+            throw new Error("El código OTP proporcionado es incorrecto.");
+        }
+        if (Date.now() > Number(user.otp_expiry)) {
+            throw new Error("El código OTP ha expirado.");
+        }
+        const newHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+        await executeQuery("UPDATE usuarios SET password_hash = ?, otp = NULL, otp_expiry = NULL WHERE username = ?", [newHash, username]);
+        return true;
     }
+
 };

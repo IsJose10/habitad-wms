@@ -3,6 +3,16 @@ const fs = require('fs');
 const path = require('path');
 const db = require('./db.js');
 
+const activeSessions = new Set();
+function isAuthorized(req) {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return false;
+    const token = authHeader.split(' ')[1];
+    return activeSessions.has(token);
+}
+
+
+
 function getRequestBody(req) {
     return new Promise((resolve, reject) => {
         let body = '';
@@ -24,6 +34,65 @@ function sendJSON(res, status, data) {
 
 // Mapeo estructurado de rutas API (método + endpoint) a controladores asíncronos
 const apiRoutes = {
+    // AUTENTICACIÓN
+    'POST /api/auth/login': async (req, res) => {
+        const body = await getRequestBody(req);
+        const { username, password } = body;
+        if (!username || !password) {
+            return sendJSON(res, 400, { error: 'Usuario y contraseña requeridos' });
+        }
+        const success = await db.authenticateUser(username, password);
+        if (success) {
+            const token = require('crypto').randomBytes(24).toString('hex');
+            activeSessions.add(token);
+            return sendJSON(res, 200, { success: true, token });
+        } else {
+            return sendJSON(res, 401, { error: 'Credenciales inválidas' });
+        }
+    },
+
+    'POST /api/auth/otp-request': async (req, res) => {
+        const body = await getRequestBody(req);
+        const { username } = body;
+        if (!username) {
+            return sendJSON(res, 400, { error: 'El nombre de usuario es requerido' });
+        }
+        try {
+            const otp = await db.generateOTP(username);
+            
+            // Imprimir el OTP de manera destacada en la consola del servidor
+            console.log("\n==================================================");
+            console.log("🚨 SOLICITUD DE RESTABLECIMIENTO DE CONTRASEÑA 🚨");
+            console.log(`Usuario: ${username}`);
+            console.log(`Código OTP Temporal: ${otp}`);
+            console.log("Expira en: 10 minutos");
+            console.log("==================================================\n");
+
+            return sendJSON(res, 200, { success: true, message: 'OTP generado en la terminal del servidor' });
+        } catch (err) {
+            return sendJSON(res, 500, { error: err.message });
+        }
+    },
+
+    'POST /api/auth/otp-verify': async (req, res) => {
+        const body = await getRequestBody(req);
+        const { username, otp, newPassword } = body;
+        if (!username || !otp || !newPassword) {
+            return sendJSON(res, 400, { error: 'Todos los campos son requeridos' });
+        }
+        try {
+            await db.verifyOTPAndResetPassword(username, otp, newPassword);
+            return sendJSON(res, 200, { success: true, message: 'Contraseña actualizada' });
+        } catch (err) {
+            return sendJSON(res, 400, { error: err.message });
+        }
+    },
+
+    'GET /api/auth/check': async (req, res) => {
+        const authorized = isAuthorized(req);
+        return sendJSON(res, 200, { authenticated: authorized });
+    },
+
     // CLIENTES
     'GET /api/clientes': async (req, res) => {
         const rows = await db.getClientes();
@@ -54,7 +123,7 @@ const apiRoutes = {
     'POST /api/productos': async (req, res) => {
         const body = await getRequestBody(req);
         const result = await db.createProducto(
-            body.codigo, body.descripcion, body.peso, body.valor_venta, 
+            body.codigo, body.descripcion, body.peso, body.valor_venta,
             body.marca, body.alto, body.largo, body.ancho, body.unidad_compra, body.unidad_consumo
         );
         return sendJSON(res, 200, result);
@@ -126,6 +195,9 @@ const apiRoutes = {
     },
     'POST /api/inventario/movimientos': async (req, res) => {
         const body = await getRequestBody(req);
+        if (body.tipo === 'OUT' && !isAuthorized(req)) {
+            return sendJSON(res, 401, { error: 'No autorizado. Debe iniciar sesión.' });
+        }
         const result = await db.createMovimiento(body);
         return sendJSON(res, 200, result);
     },
@@ -164,6 +236,9 @@ const apiRoutes = {
 
     // CARGA CIEGA DE INVENTARIO GENERAL
     'POST /api/inventario/inventario-general': async (req, res) => {
+        if (!isAuthorized(req)) {
+            return sendJSON(res, 401, { error: 'No autorizado. Debe iniciar sesión.' });
+        }
         const body = await getRequestBody(req);
         if (!body.items || !Array.isArray(body.items)) {
             return sendJSON(res, 400, { error: 'Formato de inventario inválido.' });
@@ -196,6 +271,9 @@ const apiRoutes = {
 
     // REGULARIZACIÓN - APLICAR AJUSTES DE RONDA FINAL (transaccional)
     'POST /api/inventario/regularizacion/aplicar': async (req, res) => {
+        if (!isAuthorized(req)) {
+            return sendJSON(res, 401, { error: 'No autorizado. Debe iniciar sesión.' });
+        }
         const body = await getRequestBody(req);
         if (!body.ajustes || !Array.isArray(body.ajustes)) {
             return sendJSON(res, 400, { error: 'Formato de ajustes inválido.' });

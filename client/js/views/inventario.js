@@ -107,6 +107,20 @@ export function closeInvDetails() {
 }
 
 export function switchInvTab(tab) {
+    // Interceptar las pestañas críticas de inventario si no hay sesión activa
+    if (tab === 'masivo' || tab === 'regularizacion') {
+        const token = localStorage.getItem('auth_token');
+        if (!token) {
+            // Guardar en memoria la redirección pendiente
+            window.pendingViewChange = 'inventario';
+            window.pendingTabChange = tab;
+            if (window.showSecurityOverlay) {
+                window.showSecurityOverlay();
+            }
+            return; // Cancelar cambio de pestaña
+        }
+    }
+
     const paneConsulta = document.getElementById('inv-pane-consulta');
     const paneMasivo = document.getElementById('inv-pane-masivo');
     const paneRegularizacion = document.getElementById('inv-pane-regularizacion');

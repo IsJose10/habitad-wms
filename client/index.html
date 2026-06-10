@@ -1403,6 +1403,79 @@
         <!-- Rellenado dinámicamente mediante javascript al presionar Imprimir -->
     </div>
 
+    <!-- OVERLAY DE SEGURIDAD (LOCK SCREEN MODAL) -->
+    <div id="security-lock-overlay" class="security-overlay" style="display: none;">
+        <div class="security-card">
+            
+            <!-- PANEL 1: INICIAR SESIÓN -->
+            <div id="sec-pane-login" class="sec-pane">
+                <div class="sec-header">
+                    <div class="sec-icon">🔒</div>
+                    <h2>Área de Acceso Restringido</h2>
+                    <p>Se requiere autenticación para acceder a esta sección crítica de inventario.</p>
+                </div>
+                <div class="form-group">
+                    <label for="sec-username" class="form-label">Usuario administrador</label>
+                    <input type="text" id="sec-username" class="form-control" placeholder="Ingrese usuario">
+                </div>
+                <div class="form-group">
+                    <label for="sec-password" class="form-label">Contraseña</label>
+                    <input type="password" id="sec-password" class="form-control" placeholder="Ingrese contraseña">
+                </div>
+                <div class="sec-actions">
+                    <button class="btn btn-secondary" onclick="window.cancelSecurityLogin()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="window.executeSecurityLogin()">Entrar</button>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="#" class="sec-link" onclick="window.switchSecPane('otp-request')">¿Olvidó su contraseña?</a>
+                </div>
+            </div>
+
+            <!-- PANEL 2: SOLICITUD DE OTP -->
+            <div id="sec-pane-otp-request" class="sec-pane" style="display: none;">
+                <div class="sec-header">
+                    <div class="sec-icon">🔑</div>
+                    <h2>Recuperar Acceso</h2>
+                    <p>El código OTP de 6 dígitos se generará y se mostrará en la terminal de consola del servidor.</p>
+                </div>
+                <div class="form-group">
+                    <label for="sec-otp-username" class="form-label">Confirme su usuario</label>
+                    <input type="text" id="sec-otp-username" class="form-control" placeholder="Ej: admin">
+                </div>
+                <div class="sec-actions">
+                    <button class="btn btn-secondary" onclick="window.switchSecPane('login')">Volver</button>
+                    <button class="btn btn-primary" onclick="window.executeRequestOTP()">Generar OTP</button>
+                </div>
+            </div>
+
+            <!-- PANEL 3: CONFIRMACIÓN Y CAMBIO DE CONTRASEÑA -->
+            <div id="sec-pane-otp-reset" class="sec-pane" style="display: none;">
+                <div class="sec-header">
+                    <div class="sec-icon">🔄</div>
+                    <h2>Restablecer Contraseña</h2>
+                    <p>Digite el OTP visto en la terminal y escriba su nueva clave.</p>
+                </div>
+                <div class="form-group">
+                    <label for="sec-reset-otp" class="form-label">Código OTP (6 dígitos)</label>
+                    <input type="text" id="sec-reset-otp" class="form-control" placeholder="000000" maxlength="6">
+                </div>
+                <div class="form-group">
+                    <label for="sec-reset-pass" class="form-label">Nueva Contraseña</label>
+                    <input type="password" id="sec-reset-pass" class="form-control" placeholder="Contraseña nueva">
+                </div>
+                <div class="form-group">
+                    <label for="sec-reset-pass-confirm" class="form-label">Confirmar Contraseña</label>
+                    <input type="password" id="sec-reset-pass-confirm" class="form-control" placeholder="Confirme contraseña nueva">
+                </div>
+                <div class="sec-actions">
+                    <button class="btn btn-secondary" onclick="window.switchSecPane('otp-request')">Volver</button>
+                    <button class="btn btn-primary" onclick="window.executeResetPassword()">Actualizar y Entrar</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <script type="module" src="app.js"></script>
 </body>
 
