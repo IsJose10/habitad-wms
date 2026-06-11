@@ -234,8 +234,8 @@ window.executeRequestOTP = async function() {
     }
 
     try {
-        await window.requestOTP(username);
-        alert('Se ha enviado la solicitud de OTP. Busque el código impreso en la terminal del servidor.');
+        const res = await window.requestOTP(username);
+        alert(res.message || 'Se ha enviado la solicitud de OTP. Por favor revise su correo.');
         window.switchSecPane('otp-reset');
     } catch (err) {
         alert('No se pudo generar el OTP: ' + err.message);

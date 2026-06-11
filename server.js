@@ -2,6 +2,89 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const db = require('./db.js');
+const nodemailer = require('nodemailer');
+
+// Configuración de nodemailer a través de variables de entorno
+const smtpConfigured = !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+let transporter = null;
+
+if (smtpConfigured) {
+    transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        secure: process.env.SMTP_SECURE === 'true', // true para 465, false para otros puertos
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+        }
+    });
+    console.log("HABITAD WMS: Transportador SMTP de correo electrónico configurado.");
+} else {
+    console.log("HABITAD WMS: SMTP no configurado. Se usará el modo simulación de correos por consola.");
+}
+
+async function sendOTPEmail(email, username, otp) {
+    const fromName = process.env.SMTP_FROM_NAME || 'Habitad WMS';
+    const fromEmail = process.env.SMTP_FROM || 'no-reply@habitad-wms.com';
+    const subject = '🔐 Código de seguridad OTP - Restablecer contraseña';
+    
+    const htmlBody = `
+        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff; color: #1a202c;">
+            <div style="text-align: center; border-bottom: 2px solid #3182ce; padding-bottom: 20px; margin-bottom: 20px;">
+                <h2 style="color: #2b6cb0; margin: 0;">Habitad WMS</h2>
+                <span style="font-size: 12px; color: #718096; text-transform: uppercase; letter-spacing: 1px;">Sistema de Gestión de Almacenes</span>
+            </div>
+            
+            <p style="font-size: 16px; line-height: 1.6;">Estimado <strong>${username}</strong>,</p>
+            
+            <p style="font-size: 15px; line-height: 1.6; color: #4a5568;">
+                Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en el sistema Habitad WMS. 
+                Utiliza el siguiente código de verificación temporal de un solo uso (OTP):
+            </p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <div style="display: inline-block; padding: 15px 30px; background-color: #ebf8ff; border: 1px dashed #3182ce; border-radius: 6px; font-size: 32px; font-weight: bold; color: #2b6cb0; letter-spacing: 5px;">
+                    ${otp}
+                </div>
+            </div>
+            
+            <p style="font-size: 14px; line-height: 1.5; color: #e53e3e; font-weight: 500;">
+                ⚠️ Este código tiene una validez de 10 minutos y expirará automáticamente. 
+                Si no has solicitado este restablecimiento, puedes ignorar este correo de forma segura.
+            </p>
+            
+            <div style="margin-top: 30px; border-top: 1px solid #edf2f7; padding-top: 20px; font-size: 12px; color: #a0aec0; text-align: center;">
+                Este es un mensaje generado automáticamente, por favor no respondas a esta dirección de correo.<br>
+                &copy; ${new Date().getFullYear()} Habitad WMS. Todos los derechos reservados.
+            </div>
+        </div>
+    `;
+
+    const textBody = `Habitad WMS - Solicitud de Restablecimiento de Contraseña\n\nEstimado ${username},\n\nHemos recibido una solicitud para restablecer tu contraseña. Tu código OTP temporal es:\n\n${otp}\n\nEste código expira en 10 minutos.\n\nSi no realizaste esta solicitud, por favor ignora este correo.`;
+
+    if (smtpConfigured && transporter) {
+        await transporter.sendMail({
+            from: `"${fromName}" <${fromEmail}>`,
+            to: email,
+            subject: subject,
+            text: textBody,
+            html: htmlBody
+        });
+        return { realSent: true, recipient: email };
+    } else {
+        // Modo Simulación / Consola destacado
+        console.log("\n==================================================");
+        console.log("📨 SIMULACIÓN DE ENVÍO DE CORREO (SMTP NO CONFIGURADO) 📨");
+        console.log(`De: "${fromName}" <${fromEmail}>`);
+        console.log(`Para: ${email}`);
+        console.log(`Asunto: ${subject}`);
+        console.log("---------------- CONTENIDO HTML ----------------");
+        console.log(`Código OTP: ${otp}`);
+        console.log(`Expiración: 10 minutos`);
+        console.log("==================================================\n");
+        return { realSent: false, recipient: email };
+    }
+}
 
 const activeSessions = new Set();
 function isAuthorized(req) {
@@ -68,17 +151,19 @@ const apiRoutes = {
             return sendJSON(res, 400, { error: 'El nombre de usuario es requerido' });
         }
         try {
-            const otp = await db.generateOTP(username);
+            const { otp, correo } = await db.generateOTP(username);
 
-            // Imprimir el OTP de manera destacada en la consola del servidor
-            console.log("\n==================================================");
-            console.log("🚨 SOLICITUD DE RESTABLECIMIENTO DE CONTRASEÑA 🚨");
-            console.log(`Usuario: ${username}`);
-            console.log(`Código OTP Temporal: ${otp}`);
-            console.log("Expira en: 10 minutos");
-            console.log("==================================================\n");
+            // Enviar correo (real o simulado)
+            const sendResult = await sendOTPEmail(correo, username, otp);
 
-            return sendJSON(res, 200, { success: true, message: 'OTP generado en la terminal del servidor' });
+            let message = '';
+            if (sendResult.realSent) {
+                message = `Código OTP enviado exitosamente al correo registrado (${correo}).`;
+            } else {
+                message = `Código OTP generado (Simulado). Revisa la consola del servidor. Enviado a: ${correo}`;
+            }
+
+            return sendJSON(res, 200, { success: true, message });
         } catch (err) {
             return sendJSON(res, 500, { error: err.message });
         }

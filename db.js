@@ -55,6 +55,7 @@ async function initTables() {
             CREATE TABLE IF NOT EXISTS usuarios (
                 username TEXT PRIMARY KEY,
                 password_hash TEXT NOT NULL,
+                correo TEXT,
                 otp TEXT,
                 otp_expiry BIGINT
             );
@@ -134,6 +135,7 @@ async function initTables() {
                         CREATE TABLE IF NOT EXISTS usuarios (
                 username TEXT PRIMARY KEY,
                 password_hash TEXT NOT NULL,
+                correo TEXT,
                 otp TEXT,
                 otp_expiry INTEGER
             );
@@ -151,6 +153,7 @@ async function initTables() {
             CREATE TABLE IF NOT EXISTS usuarios (
                 username TEXT PRIMARY KEY,
                 password_hash TEXT NOT NULL,
+                correo TEXT,
                 otp TEXT,
                 otp_expiry INTEGER
             );
@@ -222,6 +225,14 @@ async function initTables() {
     }
 
     // Asegurar migración de columnas adicionales en bases de datos existentes
+    try {
+        if (isPostgres) {
+            await executeQuery(`ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS correo TEXT;`);
+        } else {
+            sqliteDb.exec(`ALTER TABLE usuarios ADD COLUMN correo TEXT;`);
+        }
+    } catch (e) { }
+
     try {
         if (isPostgres) {
             await executeQuery(`ALTER TABLE ventas ADD COLUMN IF NOT EXISTS auxiliar TEXT;`);
@@ -308,11 +319,13 @@ async function initDB() {
         const users = await executeQuery("SELECT username FROM usuarios WHERE username = 'admin'");
         if (users.length === 0) {
             const defaultHash = crypto.createHash('sha256').update('admin123').digest('hex');
-            await executeQuery("INSERT INTO usuarios (username, password_hash) VALUES ('admin', ?)", [defaultHash]);
+            await executeQuery("INSERT INTO usuarios (username, password_hash, correo) VALUES ('admin', ?, 'admin@habitad-wms.com')", [defaultHash]);
             console.log("==================================================");
             console.log("🔑 USUARIO DE SEGURIDAD CREADO: admin / admin123");
             console.log("==================================================");
         }
+        // Asegurar que el usuario admin existente tenga un correo establecido si está vacío
+        await executeQuery("UPDATE usuarios SET correo = 'admin@habitad-wms.com' WHERE username = 'admin' AND (correo IS NULL OR correo = '')");
     } catch (err) {
         console.error("Error inicializando usuario administrador:", err);
     }
@@ -1019,11 +1032,19 @@ module.exports = {
     },
 
     async generateOTP(username) {
+        const rows = await executeQuery("SELECT correo FROM usuarios WHERE username = ?", [username]);
+        if (rows.length === 0) {
+            throw new Error("Usuario no encontrado.");
+        }
+        const correo = rows[0].correo;
+        if (!correo) {
+            throw new Error("El usuario no tiene un correo electrónico configurado.");
+        }
         // Generar un número aleatorio de 6 dígitos
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiry = Date.now() + 10 * 60 * 1000; // 10 minutos de expiración
         await executeQuery("UPDATE usuarios SET otp = ?, otp_expiry = ? WHERE username = ?", [otp, expiry, username]);
-        return otp;
+        return { otp, correo };
     },
 
     async verifyOTPAndResetPassword(username, otp, newPassword) {
