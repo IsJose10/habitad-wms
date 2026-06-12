@@ -474,6 +474,13 @@ export function renderCSVPreviewVentas() {
         let ivaVal = total * (venta.iva / 100);
         let totalGeneral = total + ivaVal;
 
+        let actionHTML = '';
+        if (errors.length === 0) {
+            actionHTML = `<button class="btn btn-success btn-sm" onclick="importarUnaVenta('${venta.remision}')" style="padding: 2px 6px; font-size: 0.8rem; border-radius: var(--radius-sm);">Importar</button>`;
+        } else {
+            actionHTML = `<button class="btn btn-success btn-sm" disabled style="padding: 2px 6px; font-size: 0.8rem; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);">Importar</button>`;
+        }
+
         tbody.innerHTML += `
             <tr>
                 <td><strong>${venta.remision}</strong></td>
@@ -484,6 +491,7 @@ export function renderCSVPreviewVentas() {
                 <td class="text-right font-bold">${formatoMoneda(totalGeneral)}</td>
                 <td class="text-center">${venta._cava_almacen || '-'}</td>
                 <td>${statusHTML}</td>
+                <td class="text-center">${actionHTML}</td>
             </tr>
         `;
     });
@@ -522,9 +530,37 @@ export async function confirmarImportacionCSVVentas() {
     }
 }
 
+export async function importarUnaVenta(remision) {
+    const venta = csvParsedVentas.find(v => v.remision === remision);
+    if (!venta) return;
+
+    try {
+        await fetchAPI('/ventas', 'POST', venta);
+        alert(`Factura/Remisión ${remision} importada correctamente.`);
+        
+        // Remover de la lista temporal
+        csvParsedVentas = csvParsedVentas.filter(v => v.remision !== remision);
+        renderCSVPreviewVentas();
+        
+        // Si no quedan más ventas
+        if (csvParsedVentas.length === 0) {
+            cancelarImportacionCSVVentas();
+            switchVentaTab('crear');
+        }
+        
+        if (window.loadCatalogos) {
+            await window.loadCatalogos();
+        }
+    } catch (err) {
+        console.error(err);
+        alert(`Error al importar la factura ${remision}: ${err.message}`);
+    }
+}
+
 // Bind to window for global availability
 window.switchVentaTab = switchVentaTab;
 window.descargarPlantillaCSVVentas = descargarPlantillaCSVVentas;
 window.procesarArchivoCSVVentas = procesarArchivoCSVVentas;
 window.cancelarImportacionCSVVentas = cancelarImportacionCSVVentas;
 window.confirmarImportacionCSVVentas = confirmarImportacionCSVVentas;
+window.importarUnaVenta = importarUnaVenta;
