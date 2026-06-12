@@ -14,13 +14,18 @@ let ventaItemCount = 0;
 let csvParsedVentas = [];
 
 const ventaAliasMap = {
-    remision: ['remisión', 'remision', 'factura', 'no. factura', 'nro factura', 'venta', 'no. venta', 'documento', 'remision #', 'factura #'],
-    fecha: ['fecha', 'fecha factura', 'fecha remision', 'date', 'fecha_emision', 'emision'],
-    cliente_nit: ['tercero', 'cliente', 'nit cliente', 'cliente_nit', 'nit', 'nombre cliente', 'nombre_cliente', 'razon social', 'razón social'],
-    codigo_producto: ['código', 'codigo', 'codigo producto', 'código producto', 'referencia', 'ref', 'item_code', 'codigo_articulo', 'articulo', 'producto'],
+    remision: ['remisión', 'remision', 'factura', 'no. factura', 'nro factura', 'venta', 'no. venta', 'documento', 'remision #', 'factura #', 'req. #', 'req.#', 'req #', 'req', 'requisicion', 'requisición', 'no. req', 'nro req'],
+    fecha: ['fecha', 'fecha factura', 'fecha remision', 'date', 'fecha_emision', 'emision', 'fecha elab', 'fecha elab.', 'fechaelab', 'fech requ', 'fech requ.', 'fecha requ'],
+    cliente_nit: ['tercero', 'cliente', 'nit cliente', 'cliente_nit', 'nit', 'nombre cliente', 'nombre_cliente', 'razon social', 'razón social', 'solicitante', 'c.c. destino', 'c.c destino', 'cc destino', 'destino'],
+    codigo_producto: ['código', 'codigo', 'codigo producto', 'código producto', 'referencia', 'ref', 'item_code', 'codigo_articulo', 'articulo', 'producto', 'elemento', 'cod', 'cod.'],
     descripcion: ['descripción', 'descripcion', 'descripción producto', 'nombre producto', 'detalle', 'item_desc'],
-    cantidad: ['cantidad', 'cant', 'cant.', 'unidades', 'cant_vendida', 'qty'],
-    valor_unitario: ['valor_unitario', 'valor unitario', 'precio', 'v_unitario', 'v. unitario', 'precio_unitario', 'precio unitario']
+    cantidad: ['unidades', 'cant', 'cant.', 'cant_vendida', 'qty', 'unds', 'und'],
+    valor_unitario: ['cantidad', 'valor_unitario', 'valor unitario', 'precio', 'v_unitario', 'v. unitario', 'precio_unitario', 'precio unitario'],
+    observaciones: ['observaciones', 'observación', 'observacion', 'notas', 'nota', 'comentarios'],
+    item_num: ['item', 'ítem', 'linea', 'línea', 'no. item', 'nro item'],
+    unidad_medida: ['u.m.', 'u.m', 'um', 'um.', 'unidad medida', 'unidad_medida', 'uom'],
+    bodega: ['bode surt', 'bode surt.', 'bodega', 'bode'],
+    cava_almacen: ['cava', 'almacen', 'almacén', 'almacenam', 'cava almacen', 'almacenamiento', 'cava/almacen', 'almacenam.']
 };
 
 function buscarClienteNit(terceroText) {
@@ -263,24 +268,24 @@ export function switchVentaTab(tab) {
 export function descargarPlantillaCSVVentas() {
     if (window.XLSX) {
         const data = [
-            ["Remisión", "Fecha", "Cliente", "Producto", "Descripción", "Cantidad", "Valor Unitario"],
-            ["REM-001", "2026-06-04", "EL CHOCLO", "00032", "AREPAS - Empaque Al Vacio", 50, 2500],
-            ["REM-001", "2026-06-04", "EL CHOCLO", "10956", "CAJA CLAMSHELL GRANDE", 100, 1200],
-            ["REM-002", "2026-06-04", "Distraves", "05302", "CHULETA ESPECIAL - Distraves", 20, 18000]
+            ["FECHA ELAB", "REQ. #", "ITEM", "ESTADO", "ELEMENTO", "DESCRIPCION", "CANTIDAD", "U.M.", "FECH REQU", "BODE SURT", "C.C. DESTINO", "SOLICITANTE", "OBSERVACIONES", "cava almacen", "unidades"],
+            ["30/03/2026", "2942195", "45", "BOO", "00176", "MIEL DE ABEJAS COJIN", "$ 4.536,00", "Und", "02/04/2026", "055", "Q70 - GUACARI P.H. SINCELEJO", "0Q70 - Administrador de restaurante", "SINCELEJO,MONTERIA,RIOHACHA,VALLEDUPAR,MAGANGUE Jueves 02 Sugerido", "Q70", ""],
+            ["30/03/2026", "2942195", "46", "BOO", "08110", "PAÑOS DE MICROFIBRA AZUL", "$ 3,00", "Und", "02/04/2026", "055", "Q70 - GUACARI P.H. SINCELEJO", "0Q70 - Administrador de restaurante", "", "Q70", ""],
+            ["30/03/2026", "2942195", "47", "BOO", "08111", "PAÑOS DE MICROFIBRA VERDE", "$ 4,00", "Und", "02/04/2026", "055", "Q70 - GUACARI P.H. SINCELEJO", "0Q70 - Administrador de restaurante", "", "Q70", ""]
         ];
         const ws = XLSX.utils.aoa_to_sheet(data);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "FacturasVenta");
-        XLSX.writeFile(wb, "plantilla_facturas_venta.xlsx");
+        XLSX.writeFile(wb, "plantilla_facturas_venta_diaria.xlsx");
     } else {
-        const headers = 'remision,fecha,cliente_nit,codigo_producto,descripcion,cantidad,valor_unitario\n';
-        const sample = 'REM-001,2026-06-04,900111222,00032,AREPAS - Empaque Al Vacio,50,2500\nREM-001,2026-06-04,900111222,10956,CAJA CLAMSHELL GRANDE,100,1200\n';
+        const headers = 'FECHA ELAB,REQ. #,ITEM,ESTADO,ELEMENTO,DESCRIPCION,CANTIDAD,U.M.,FECH REQU,BODE SURT,C.C. DESTINO,SOLICITANTE,OBSERVACIONES,cava almacen,unidades\n';
+        const sample = '30/03/2026,2942195,45,BOO,00176,MIEL DE ABEJAS COJIN,"$ 4.536,00",Und,02/04/2026,055,Q70,0Q70 - Administrador,Sugerido,Q70,\n';
 
         const blob = new Blob([headers + sample], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", "plantilla_facturas_venta.csv");
+        link.setAttribute("download", "plantilla_facturas_venta_diaria.csv");
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
@@ -314,6 +319,7 @@ function parseExcelOrCSVToVentas(rows, colMapping) {
     let lastRemision = '';
     let lastFecha = '';
     let lastClienteNit = '';
+    let lastObservaciones = '';
 
     const startIndex = colMapping._headerIndex + 1;
 
@@ -328,6 +334,11 @@ function parseExcelOrCSVToVentas(rows, colMapping) {
         let descripcionRaw = colMapping.descripcion !== -1 ? String(row[colMapping.descripcion] || '').trim() : '';
         let cantidadRaw = colMapping.cantidad !== -1 ? String(row[colMapping.cantidad] || '').trim() : '';
         let valUnitRaw = colMapping.valor_unitario !== -1 ? String(row[colMapping.valor_unitario] || '').trim() : '';
+        let observacionesRaw = colMapping.observaciones !== -1 ? String(row[colMapping.observaciones] || '').trim() : '';
+        let itemNumRaw = colMapping.item_num !== -1 ? String(row[colMapping.item_num] || '').trim() : '';
+        let umRaw = colMapping.unidad_medida !== -1 ? String(row[colMapping.unidad_medida] || '').trim() : '';
+        let bodegaRaw = colMapping.bodega !== -1 ? String(row[colMapping.bodega] || '').trim() : '';
+        let cavaRaw = colMapping.cava_almacen !== -1 ? String(row[colMapping.cava_almacen] || '').trim() : '';
 
         if (!remisionRaw && !codigoRaw && !clienteRaw) continue;
 
@@ -339,6 +350,9 @@ function parseExcelOrCSVToVentas(rows, colMapping) {
 
         if (clienteRaw) lastClienteNit = clienteRaw;
         else clienteRaw = lastClienteNit;
+
+        if (observacionesRaw) lastObservaciones = observacionesRaw;
+        else observacionesRaw = lastObservaciones;
 
         if (!remisionRaw) continue;
         if (!codigoRaw) continue;
@@ -352,28 +366,45 @@ function parseExcelOrCSVToVentas(rows, colMapping) {
                 remision: remisionRaw,
                 fecha: parsedFecha,
                 cliente_nit: resolvedNit,
-                observaciones: 'Importado de Excel/CSV',
-                iva: 19,
+                observaciones: observacionesRaw || 'Importado de Excel/CSV',
+                iva: 0,
                 estado: 'Pendiente',
-                items: []
+                items: [],
+                _bodega: bodegaRaw,
+                _cava_almacen: cavaRaw
             });
         }
 
         const venta = ventasMap.get(remisionRaw);
         const prod = buscarProductoPorCodigo(codigoRaw);
 
+        // La cantidad real viene de la columna "unidades" (cantidad en el aliasMap)
+        // El valor unitario puede venir de la columna "CANTIDAD" del Excel (que es realmente precio)
         const quantity = parseNumberString(cantidadRaw);
         let price = parseNumberString(valUnitRaw);
-        if (price === 0 && prod) {
-            price = prod.valor_venta || 0;
+
+        // Si la cantidad es 0 pero hay precio, y el precio parece ser una cantidad (no tiene $ ni decimales largos)
+        // usar el precio como cantidad y buscar el valor del catálogo
+        let finalQty = quantity;
+        let finalPrice = price;
+
+        if (finalQty === 0 && finalPrice > 0) {
+            // Si no hay columna de unidades mapeada, usar el precio como cantidad
+            finalQty = finalPrice;
+            finalPrice = prod ? (prod.valor_venta || 0) : 0;
+        }
+
+        if (finalPrice === 0 && prod) {
+            finalPrice = prod.valor_venta || 0;
         }
 
         venta.items.push({
-            item: String(venta.items.length + 1),
+            item: itemNumRaw || String(venta.items.length + 1),
             codigo: prod ? prod.codigo : codigoRaw,
             descripcion: descripcionRaw || (prod ? prod.descripcion : ''),
-            cantidad: quantity,
-            v_unitario: price
+            cantidad: finalQty,
+            v_unitario: finalPrice,
+            unidad_medida: umRaw || (prod ? prod.unidad_compra || 'Und' : 'Und')
         });
     }
 
@@ -389,7 +420,7 @@ export function renderCSVPreviewVentas() {
     tbody.innerHTML = '';
 
     if (csvParsedVentas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No se encontraron facturas válidas para importar.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">No se encontraron facturas válidas para importar.</td></tr>';
         btnConfirmar.disabled = true;
         previewPanel.style.display = 'block';
         return;
@@ -426,6 +457,7 @@ export function renderCSVPreviewVentas() {
             allValid = false;
         }
 
+        let totalUnidades = venta.items.reduce((sum, item) => sum + item.cantidad, 0);
         let total = venta.items.reduce((sum, item) => sum + (item.cantidad * item.v_unitario), 0);
         let ivaVal = total * (venta.iva / 100);
         let totalGeneral = total + ivaVal;
@@ -436,7 +468,9 @@ export function renderCSVPreviewVentas() {
                 <td>${cliNombre}</td>
                 <td>${venta.fecha}</td>
                 <td class="text-center">${venta.items.length}</td>
+                <td class="text-center">${totalUnidades}</td>
                 <td class="text-right font-bold">${formatoMoneda(totalGeneral)}</td>
+                <td class="text-center">${venta._cava_almacen || '-'}</td>
                 <td>${statusHTML}</td>
             </tr>
         `;

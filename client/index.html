@@ -937,18 +937,18 @@
                         <div class="card-body">
                             <div class="mb-4"
                                 style="background-color: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.2); padding: 18px; border-radius: var(--radius-md);">
-                                <h3 style="color: #60a5fa; font-size: 1.1rem; margin-bottom: 8px;">Carga de Archivos de
-                                    Excel o CSV:</h3>
+                                <h3 style="color: #60a5fa; font-size: 1.1rem; margin-bottom: 8px;">Carga Diaria de
+                                    Facturas de Venta (Excel / CSV):</h3>
                                 <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">
-                                    Puede subir su archivo real de facturas/remisiones de venta en formato <strong>Excel
+                                    Puede subir su archivo diario de facturas/requisiciones de venta en formato <strong>Excel
                                         (.xlsx, .xls)</strong> o <strong>CSV (.csv)</strong>.
                                     El sistema detecta automáticamente las columnas mediante el análisis inteligente de
-                                    encabezados (ej: <i>Remisión #, Cliente, Fecha, Producto, Cantidad, Valor
-                                        Unitario</i>, etc.).
+                                    encabezados (ej: <i>REQ. #, Fecha Elab, Elemento, Descripción, Cantidad, Unidades,
+                                        U.M., Solicitante, Observaciones, Cava/Almacén</i>, etc.).
                                 </p>
                                 <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 6px;">
-                                    * El sistema validará que los clientes y los códigos de producto ya existan en la
-                                    base de datos antes de confirmar la importación.
+                                    * La columna <strong>"CANTIDAD"</strong> se interpreta como valor unitario ($) y la columna <strong>"unidades"</strong> como cantidad real.
+                                    El sistema validará que los clientes y los códigos de producto existan antes de confirmar la importación.
                                 </p>
                                 <button class="btn btn-secondary btn-sm mt-3"
                                     onclick="descargarPlantillaCSVVentas()">Descargar Plantilla Excel</button>
@@ -968,12 +968,14 @@
                                     <table class="table">
                                         <thead>
                                             <tr>
-                                                <th>Remisión</th>
-                                                <th>Cliente</th>
+                                                <th>Remisión / Req. #</th>
+                                                <th>Cliente / Solicitante</th>
                                                 <th>Fecha</th>
                                                 <th class="text-center">Items</th>
+                                                <th class="text-center">Unidades</th>
                                                 <th class="text-right">Total</th>
-                                                <th>Estado de Validación</th>
+                                                <th class="text-center">Cava / Almacén</th>
+                                                <th>Validación</th>
                                             </tr>
                                         </thead>
                                         <tbody id="csv-preview-body-ventas">
