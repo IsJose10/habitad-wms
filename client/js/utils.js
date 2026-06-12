@@ -126,6 +126,37 @@ export function formatExcelDate(value) {
     return '';
 }
 
+/**
+ * Normaliza un texto de encabezado: limpia saltos de línea, tabs, espacios múltiples
+ * y convierte a minúsculas para comparación flexible.
+ */
+function normalizeHeader(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/[\r\n\t]+/g, ' ')  // Saltos de línea y tabs → espacio
+        .replace(/\s+/g, ' ')         // Múltiples espacios → uno solo
+        .trim()
+        .toLowerCase();
+}
+
+/**
+ * Compara un texto de celda contra la lista de aliases de forma flexible.
+ * Primero intenta coincidencia exacta normalizada, luego intenta sin puntos/espacios.
+ */
+function matchesAlias(cellStr, aliases) {
+    // 1. Coincidencia exacta normalizada
+    if (aliases.includes(cellStr)) return true;
+    
+    // 2. Coincidencia sin puntos, espacios extras, guiones, barras diagonales
+    const stripped = cellStr.replace(/[.\-_\s\/]/g, '');
+    for (const alias of aliases) {
+        const aliasStripped = alias.replace(/[.\-_\s\/]/g, '');
+        if (stripped === aliasStripped) return true;
+    }
+    
+    return false;
+}
+
 export function findHeaderRow(rows, aliasMap) {
     let bestRowIndex = -1;
     let maxMatches = -1;
@@ -136,12 +167,11 @@ export function findHeaderRow(rows, aliasMap) {
 
         let matches = 0;
         row.forEach(cell => {
-            if (cell === null || cell === undefined) return;
-            const cellStr = String(cell).trim().toLowerCase();
+            const cellStr = normalizeHeader(cell);
             if (!cellStr) return;
 
             for (const key in aliasMap) {
-                if (aliasMap[key].includes(cellStr)) {
+                if (matchesAlias(cellStr, aliasMap[key])) {
                     matches++;
                     break;
                 }
@@ -163,12 +193,11 @@ export function mapColumns(headerRow, aliasMap) {
     }
 
     headerRow.forEach((cell, index) => {
-        if (cell === null || cell === undefined) return;
-        const cellStr = String(cell).trim().toLowerCase();
+        const cellStr = normalizeHeader(cell);
         if (!cellStr) return;
 
         for (const key in aliasMap) {
-            if (aliasMap[key].includes(cellStr) && colMapping[key] === -1) {
+            if (matchesAlias(cellStr, aliasMap[key]) && colMapping[key] === -1) {
                 colMapping[key] = index;
                 break;
             }

@@ -15,7 +15,7 @@ let csvParsedVentas = [];
 
 const ventaAliasMap = {
     remision: ['remisión', 'remision', 'factura', 'no. factura', 'nro factura', 'venta', 'no. venta', 'documento', 'remision #', 'factura #', 'req. #', 'req.#', 'req #', 'req', 'requisicion', 'requisición', 'no. req', 'nro req'],
-    fecha: ['fecha', 'fecha factura', 'fecha remision', 'date', 'fecha_emision', 'emision', 'fecha elab', 'fecha elab.', 'fechaelab', 'fech requ', 'fech requ.', 'fecha requ'],
+    fecha: ['fecha', 'fecha factura', 'fecha remision', 'date', 'fecha_emision', 'emision', 'fecha elab', 'fecha elab.', 'fechaelab', 'fech elab', 'fech elab.', 'fech requ', 'fech requ.', 'fecha requ'],
     cliente_nit: ['tercero', 'cliente', 'nit cliente', 'cliente_nit', 'nit', 'nombre cliente', 'nombre_cliente', 'razon social', 'razón social', 'solicitante', 'c.c. destino', 'c.c destino', 'cc destino', 'destino'],
     codigo_producto: ['código', 'codigo', 'codigo producto', 'código producto', 'referencia', 'ref', 'item_code', 'codigo_articulo', 'articulo', 'producto', 'elemento', 'cod', 'cod.'],
     descripcion: ['descripción', 'descripcion', 'descripción producto', 'nombre producto', 'detalle', 'item_desc'],
@@ -25,12 +25,18 @@ const ventaAliasMap = {
     item_num: ['item', 'ítem', 'linea', 'línea', 'no. item', 'nro item'],
     unidad_medida: ['u.m.', 'u.m', 'um', 'um.', 'unidad medida', 'unidad_medida', 'uom'],
     bodega: ['bode surt', 'bode surt.', 'bodega', 'bode'],
-    cava_almacen: ['cava', 'almacen', 'almacén', 'almacenam', 'cava almacen', 'almacenamiento', 'cava/almacen', 'almacenam.']
+    cava_almacen: ['cava', 'almacen', 'almacén', 'almacenam', 'cava almacen', 'cava almacen m', 'cava almacena m', 'cava almacenam', 'almacenamiento', 'cava/almacen', 'almacenam.', 'cava/almacen/almacenam', 'cava/almacen/almacenamiento']
 };
 
 function buscarClienteNit(terceroText) {
     if (!terceroText) return '';
     const norm = String(terceroText).trim().toLowerCase();
+    
+    // Si contiene un patrón de punto de venta (ej: Q70, 0Q70, Q15, etc.) o palabras clave de tiendas Frisby
+    if (/(?:^|\b)0?q\d+/i.test(norm) || norm.includes('frisby') || norm.includes('restaurante')) {
+        const frisby = state.clientes.find(c => c.nombre.toLowerCase().includes('frisby'));
+        if (frisby) return frisby.nit;
+    }
     
     // Coincidencia exacta por nombre
     let match = state.clientes.find(c => c.nombre.trim().toLowerCase() === norm);
@@ -362,11 +368,17 @@ function parseExcelOrCSVToVentas(rows, colMapping) {
         if (!parsedFecha) parsedFecha = new Date().toISOString().split('T')[0];
 
         if (!ventasMap.has(remisionRaw)) {
+            const obsParts = [];
+            if (observacionesRaw) obsParts.push(observacionesRaw);
+            if (cavaRaw) obsParts.push(`Cava: ${cavaRaw}`);
+            if (bodegaRaw) obsParts.push(`Bodega: ${bodegaRaw}`);
+            const obsText = obsParts.join(' | ') || 'Importado de Excel/CSV';
+
             ventasMap.set(remisionRaw, {
                 remision: remisionRaw,
                 fecha: parsedFecha,
                 cliente_nit: resolvedNit,
-                observaciones: observacionesRaw || 'Importado de Excel/CSV',
+                observaciones: obsText,
                 iva: 0,
                 estado: 'Pendiente',
                 items: [],
